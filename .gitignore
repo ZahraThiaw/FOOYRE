@@ -1,0 +1,48 @@
+# --- Secrets et environnement ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# --- Java / Maven ---
+backend/target/
+target/
+*.class
+*.log
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+dist/
+coverage/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+playwright-report/
+test-results/
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Données locales ---
+postgres-data/
+*.dump
+*.sql.gz
+exports/
+uploads/
+
+# --- Claude Code (paramètres locaux) ---
+.claude/settings.local.json
