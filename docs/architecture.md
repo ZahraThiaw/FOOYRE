@@ -98,7 +98,7 @@ Ce document décrit l'architecture retenue, les décisions structurantes (ADR co
 | Garde le jeton d'accès **en mémoire uniquement** (variable du client API) | Émet, signe et valide les jetons ; seul juge des droits |
 | Ne lit jamais le cookie de rafraîchissement (inaccessible car `HttpOnly`) | Pose, fait tourner et révoque le cookie ; stocke uniquement des hachés |
 | Au chargement de la page ou sur `401`, appelle **une seule fois** `/auth/refresh` (requête unique partagée, coordination entre onglets via l'API Web Locks / `BroadcastChannel`) puis rejoue la requête | Applique la rotation, la fenêtre de tolérance et la détection de réutilisation |
-| Envoie `X-Requested-With: fooyre` sur les routes `/auth/*` | Vérifie `Origin` et l'en‑tête personnalisé sur les routes à cookie |
+| Envoie `X-Requested-With: fooyre` sur les routes `/auth/*` | Vérifie `Origin` et l'en‑tête personnalisé sur les routes à cookie. L'en‑tête personnalisé n'est qu'un complément : la protection CSRF repose sur l'ensemble `SameSite=Strict` + `Path` restreint + contrôle `Origin` |
 | Après changement d'entreprise : remplace le jeton, **vide entièrement le cache TanStack Query**, recharge le contexte (`/me`) | Vérifie l'appartenance et le statut avant d'émettre le nouveau jeton |
 | Masque les actions non autorisées (confort uniquement) | Contrôle chaque permission et filtre les champs sensibles |
 
@@ -135,7 +135,7 @@ Voir §7.
 Les comportements critiques (RLS, `NUMERIC`, verrous, contraintes) sont propres à PostgreSQL ; les tests d'intégration tournent contre un vrai PostgreSQL en conteneur.
 
 ### ADR‑12 — Versions des dépendances
-Java 21 (imposé). Frontend : dernières versions stables de React, Vite, Tailwind CSS, TanStack Query au démarrage de la phase 1. Les versions exactes seront figées dans `pom.xml` / `package-lock.json`.
+Java 21 (imposé). Frontend : versions vérifiées et figées en phase 1 (voir « Frontend » ci‑dessous et `frontend/package-lock.json`). Les versions backend seront figées dans `pom.xml`.
 
 **Spring Boot : cible 4.1.2 — vérifiée partiellement le 2026-11-18, confirmation finale au démarrage de la phase 1.**
 
@@ -157,9 +157,38 @@ Points de compatibilité à traiter en phase 1 (issus du guide de migration Spri
 
 **Alternative si une incompatibilité bloquante apparaît** : dernier correctif de la branche **3.5.x** (3.5.16 relevée dans les métadonnées Maven Central), compatible Java 21 et à l'écosystème plus mûr ; cette option n'a pas été vérifiée en détail et ne serait retenue qu'après validation.
 
+**Frontend — versions retenues (phase 1, vérifiées le 2026‑11‑18)** sur le registre npm (date de publication, `engines`, `peerDependencies`) et les notes de version officielles. Règle : dernier correctif publié depuis au moins 7 jours, dans une version majeure sortie depuis au moins un mois ; dérogation documentée pour MSW. Environnement : Node.js 24.22.2 (LTS), npm 11.19.1 ; `engines` : `>=24.15.0 <25` avec `engine-strict`.
+
+| Rôle | Paquet | Version | Justification |
+|---|---|---|---|
+| Interface | `react`, `react-dom` | 19.3.1 | Stable ; `react-dom` exige `react ^19.3.1` |
+| Routage | `react-router` | 8.5.1 | Stable depuis 2026‑06 ; aucun changement bloquant pour une SPA ; `RouterProvider` importé depuis `react-router/dom` |
+| Données serveur | `@tanstack/react-query` | 5.107.1 | — |
+| HTTP | `axios` | 1.21.1 | — |
+| Traductions | `i18next`, `react-i18next` | 26.7.2, 17.1.13 | La v27/v18 (2026‑11‑07) est trop récente ; options configurées comme les défauts de la v27 pour faciliter la migration |
+| Icônes | `lucide-react` | 1.71.0 | — |
+| Langage | `typescript` | 6.0.3 | La 7.0 est incompatible avec `typescript-eslint` (`<6.1.0`). TypeScript 6 : `types` vaut `[]` par défaut (déclarés explicitement), `baseUrl` déprécié (alias par `paths`) |
+| Build | `vite`, `@vitejs/plugin-react` | 8.3.8, 6.3.0 | — |
+| Styles | `tailwindcss`, `postcss`, `autoprefixer` | 3.4.19 (`v3-lts`), 8.5.32, 10.6.2 | Tailwind 4 exige Chrome 111 / Safari 16.4 ; la branche 3.4 a été choisie pour la compatibilité avec des smartphones plus anciens |
+| Tests | `vitest`, `jsdom`, `@testing-library/react`, `/dom`, `/user-event`, `/jest-dom` | 5.1.0, 30.1.3, 16.3.3, 10.4.2, 14.6.9, 7.0.1 | jsdom 31 trop récent |
+| Simulation | `msw` | 3.0.7 | Seule branche maintenue ; correctifs uniquement depuis 3.0.0 (dérogation : outil de développement, jamais livré) |
+| Qualité | `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-plugin-i18next`, `globals`, `prettier` | 10.15.0, 10.0.1, 8.73.0, 7.1.1, 0.5.7, 6.1.5, 17.14.0, 3.9.10 | `eslint-plugin-i18next` ne déclare pas ESLint 10 : fonctionnement constaté en phase 1. **`npm audit` exécuté après correction (2026‑11‑18) : 0 vulnérabilité** |
+
+**Frontend — navigateurs ciblés (provisoire)** : Chrome ≥ 87, Edge ≥ 88, Firefox ≥ 78, Safari ≥ 14, iOS Safari ≥ 14. Deux mécanismes distincts, à garder alignés manuellement :
+- Vite (`build.target` et `build.cssTarget` dans `vite.config.ts`) : abaissement de la syntaxe JavaScript (Oxc) et du CSS minifié (Lightning CSS) ;
+- Autoprefixer (liste `browserslist` de `package.json`) : préfixes CSS.
+
+Limites connues :
+- Vite n'ajoute **aucun polyfill** : une API récente utilisée par le code ou une bibliothèque (ex. React Router 8, compilé en ES2022) ne serait pas fournie aux anciens navigateurs. `@vitejs/plugin-legacy` n'est pas installé ; à réévaluer selon les tests sur appareils (ses scripts intégrés à la page entrent en conflit avec une CSP stricte).
+- Tailwind 3 est officiellement testé sur les dernières versions des navigateurs ; la compatibilité ancienne n'est pas garantie. Utilitaires à éviter : `*-dvh`/`*-svh`, `has-*`, `@container`, `text-balance`, `gap` sur un conteneur flex (Safari 14.0).
+- Pas d'`await` de premier niveau dans le code (non pris en charge par Safari 14).
+- `lib` TypeScript limitée à ES2020 (lot 2, R5) : TypeScript refuse les API JavaScript ES2021+ (`Array.prototype.at`, `Object.hasOwn`, `Promise.any`, `String.prototype.replaceAll`, `WeakRef`…), non fournies aux navigateurs ciblés faute de polyfill ; test de garde `src/test/browserCompatibility.test.ts`. `target` reste ES2022 (Vite/Oxc abaisse la syntaxe selon `build.target`). La bibliothèque `DOM` de TypeScript n'est pas versionnée : les API Web récentes ne sont pas détectées.
+- Formats `Intl` : wolof et pulaar présents dans Node (ICU 78.3), sérère absent ; prise en charge par les navigateurs cibles non vérifiée.
+- Un contrôle statique du bundle (phase 1) n'a trouvé ni syntaxe non abaissée ni API récente connue ; il ne remplace pas des **tests de compatibilité sur appareils réels**, à planifier avant la mise en production (appareils Android et iOS anciens, ou service de test d'appareils, soumis à validation).
+
 ### ADR‑13 — Internationalisation extensible — **validée (D16)**
 **Décision** : français seul au lancement, mais aucun texte d'interface codé en dur dès la phase 1.
-- **Frontend** : textes dans des catalogues par locale (`frontend/src/shared/i18n/locales/fr/*.json`) ; bibliothèque d'internationalisation à choisir et justifier en phase 1 (licence, maintenance) ; formats de dates, nombres et montants via `Intl` avec la locale active (`fr-SN` au lancement). Les messages d'erreur sont produits par le frontend à partir des `code` stables de l'API.
+- **Frontend** : textes dans des catalogues par locale (`frontend/src/shared/i18n/locales/fr/*.json`) ; bibliothèque retenue en phase 1 : `i18next` + `react-i18next` (maturité, chargement des langues à la demande, langue de repli, pluriels via `Intl`), avec clés typées et contrôles ESLint contre les textes en dur (lots 2 et 2.1, R6 : `i18next/no-literal-string` en mode `jsx-only` avec les attributs visibles et le contrôle des gabarits sur les `.tsx` ; `no-restricted-syntax` sur les `.ts`/`.tsx` pour le texte écrit dans le DOM — propriétés visibles en notation pointée ou entre crochets, ternaires, concaténations courtes, `setAttribute`/`setAttributeNS`, `createTextNode`, `insertAdjacentText`, `append`/`prepend`/`replaceChildren` — et `alert`/`confirm`/`prompt` ; ces règles ne détectent que des formes syntaxiques : couverture exacte, faux positifs connus et contournements non détectés dans `CLAUDE.md` §11 ; la revue de code reste obligatoire pour tout texte visible) ; formats de dates, nombres et montants via `Intl` avec la locale active (`fr-SN` au lancement). Les messages d'erreur sont produits par le frontend à partir des `code` stables de l'API.
 - **Backend** : textes destinés à l'utilisateur (reçus, PDF, emails, `title`/`detail` des erreurs) dans des fichiers `messages_<locale>.properties` (`MessageSource`), en français au lancement.
 - **Préférence** : `app_user.locale` (défaut `fr`), `business.default_locale` (défaut `fr`) ; seules les locales déclarées comme prises en charge sont acceptées.
 - **IA** : la langue de réponse est un paramètre de l'invite ; français uniquement tant que la qualité dans une autre langue n'a pas été évaluée.
@@ -232,8 +261,11 @@ Règles : les contrôleurs n'appellent que `application` ; les entités ne sorte
 
 | Dossier | Contenu |
 |---|---|
-| `app/` | Point d'entrée, routeur, `QueryClientProvider`, garde d'authentification, mise en page |
+| `main.tsx` | Démarrage en deux temps : données fictives éventuelles (`@mocks-entry`), puis chargement de l'application |
+| `app/` | Rendu, providers (`QueryClientProvider`, i18n, contexte d'exécution), routes (`createBrowserRouter`), future garde d'authentification |
+| `layouts/` | `AppLayout` mobile‑first (en‑tête, contenu, bandeau « données fictives ») |
 | `features/auth` | Connexion, inscription, invitation, choix de l'entreprise active |
+| `features/session` | Contrat `/me` (types, permissions nommées), états de session (`loading`, `ready`, `no-business`, `expired`, `forbidden`, `error`), changement d'entreprise active (`switchBusiness` : jeton en mémoire, cache réinitialisé, `/me` rechargé — ADR‑04) |
 | `features/products`, `categories`, `inventory`, `customers`, `suppliers` | GESTION |
 | `features/sales`, `payments`, `receipts` | COMMERCE |
 | `features/expenses`, `treasury` | FINANCE |
@@ -243,7 +275,12 @@ Règles : les contrôleurs n'appellent que `application` ; les entités ne sorte
 | `features/storefront` | Gestion du catalogue public + pages publiques |
 | `features/settings`, `features/team` | Paramètres, utilisateurs |
 | `features/platform-admin` | Back‑office plateforme |
-| `shared/api` | Instance Axios, intercepteurs (jeton, rafraîchissement, erreurs Problem Details), clés de requêtes |
+| `shared/api` | Instance Axios, intercepteurs (jeton, rafraîchissement, erreurs Problem Details), clés de requêtes ; traduction **centralisée** des erreurs (`errorMessages.ts` : code stable → statut → réseau / délai dépassé ; jamais le texte du serveur), affichée par `shared/ui/ApiErrorMessage` (référence `traceId` pour 5xx, `Retry-After` pour 429) |
+| `shared/auth` | Jeton d'accès **en mémoire uniquement** ; rafraîchissement de session préparé (requête unique partagée) mais non branché tant que le backend n'existe pas ; coordination entre onglets prévue en phase 2 |
+| `shared/config` | Lecture des variables publiques `VITE_*` (aucun secret) |
+| `shared/theme` | Jetons de design (variables CSS) utilisés par `tailwind.config.ts` |
+| `mocks/` | **Données fictives MSW** (handlers, fixtures marquées) : serveur de développement avec `VITE_ENABLE_MOCKS=true` et tests uniquement. Quatre verrous : build refusé si `VITE_ENABLE_MOCKS=true` ; plugin `msw/vite` branché seulement sur le serveur de développement ; alias `@mocks-entry` pointant vers un module vide hors de ce cas (aucune référence à `virtual:msw`, aux handlers ni aux fixtures) ; contrôle `scripts/verify-build.mjs` du dossier `dist/` après chaque build |
+| `test/` | Configuration Vitest et serveur MSW des tests (`msw/node`, toute requête non simulée fait échouer le test) |
 | `shared/i18n` | Configuration de l'internationalisation, catalogues `locales/fr/` (ADR‑13) |
 | `shared/offline` | Service worker, instantané local, file d'opérations en attente, synchronisation (ADR‑14 ; phase dédiée) |
 | `shared/ui` | Composants UI réutilisables (Tailwind, icônes Lucide) |
@@ -451,6 +488,7 @@ Objectif : couverture élevée sur `finance`, `commerce`, `gestion` (stock) et `
 
 - Toute configuration sensible passe par des **variables d'environnement** ; `application.yml` ne contient que des références `${VAR}` et des valeurs non sensibles par défaut.
 - `.env` (local) est ignoré par Git ; `.env.example` documente les noms avec des valeurs fictives.
+- Deux fichiers distincts : le `.env.example` racine (backend et infrastructure, contient des noms de secrets) et `frontend/.env.example` (variables publiques `VITE_*` uniquement : `VITE_API_BASE_URL`, `VITE_ENABLE_MOCKS=false`). Vite ne lit que le dossier `frontend/` ; aucune valeur du fichier racine n'est copiée dans le frontend.
 - Profils Spring : `dev`, `test`, `prod`. En `prod`, l'application **refuse de démarrer** si un secret obligatoire manque ou garde une valeur d'exemple (`JWT_SECRET` trop court, `AUTH_COOKIE_SECURE=false`, `ANTHROPIC_API_KEY` d'exemple alors que l'IA est activée, etc.).
 - La clé `ANTHROPIC_API_KEY` n'existe que côté backend ; aucune variable `VITE_*` ne contient de secret (tout ce qui est préfixé `VITE_` est public dans le bundle).
 - Production : secrets injectés par la plateforme d'hébergement (gestionnaire de secrets), rotation documentée.
@@ -495,11 +533,18 @@ FOOYRE/
 │   ├── vite.config.ts
 │   ├── tsconfig.json
 │   ├── index.html
-│   ├── Dockerfile
+│   ├── tailwind.config.ts · postcss.config.js · eslint.config.js
+│   ├── .env.example                       (variables PUBLIQUES du frontend uniquement)
+│   ├── Dockerfile                         (à venir)
+│   ├── scripts/verify-build.mjs           (contrôle anti‑données fictives du build)
 │   └── src/
 │       ├── app/
 │       ├── features/
-│       └── shared/                        (api, i18n/locales/fr, offline, ui, lib…)
+│       ├── layouts/
+│       ├── mocks/                         (données fictives — développement et tests uniquement)
+│       ├── shared/                        (api, auth, config, i18n/locales/fr, theme, ui, lib… ; offline en phase 12)
+│       ├── styles/
+│       └── test/
 ├── infra/
 │   ├── nginx/                             (configuration reverse proxy)
 │   ├── postgres/                          (script d'init : rôles app/migration)

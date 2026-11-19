@@ -1,0 +1,38 @@
+{
+  "app": {
+    "name": "FOOYRE",
+    "tagline": "La lumière intelligente de votre entreprise.",
+    "skipToContent": "Aller au contenu principal"
+  },
+  "demo": {
+    "banner": "Données de démonstration — fictives. Aucune donnée réelle n'est affichée."
+  },
+  "home": {
+    "title": "Bienvenue sur FOOYRE",
+    "intro": "Le socle technique de l'application est en place. Les modules (catalogue, ventes, finances…) seront ajoutés dans les prochaines phases.",
+    "session": {
+      "title": "Session",
+      "loading": "Chargement de votre profil…",
+      "unavailable": "Le service n'est pas disponible pour le moment.",
+      "signedInAs": "Connecté·e en tant que {{name}}",
+      "activeBusiness": "Entreprise active : {{business}}"
+    }
+  },
+  "errors": {
+    "notFound": {
+      "title": "Page introuvable",
+      "description": "La page demandée n'existe pas ou a été déplacée.",
+      "backHome": "Retour à l'accueil"
+    },
+    "unexpected": {
+      "title": "Une erreur est survenue",
+      "description": "Veuillez réessayer. Si le problème persiste, contactez le support."
+    },
+    "mockStartup": {
+      "title": "Mode démonstration indisponible",
+      "description": "Le mode démonstration (données fictives) a été demandé mais n'a pas pu être initialisé. Par sécurité, l'application a été bloquée : elle n'a pas démarré en mode réel et aucune requête n'a été envoyée au serveur.",
+      "action": "Rechargez la page. Si le problème persiste, vérifiez la console du navigateur ou désactivez le mode démonstration (VITE_ENABLE_MOCKS=false).",
+      "detail": "Détail technique : {{detail}}"
+    }
+  }
+}

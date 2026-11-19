@@ -1,0 +1,13 @@
+/*
+ * Jetons de design (valeurs RVB séparées par des espaces, utilisées par tailwind.config.ts
+ * avec l'opacité). Palette provisoire, à remplacer par la charte graphique FOOYRE.
+ */
+:root {
+  --color-brand: 180 83 9;
+  --color-brand-contrast: 255 255 255;
+  --color-surface: 250 250 249;
+  --color-ink: 28 25 23;
+  --color-ink-muted: 87 83 78;
+  --color-warning: 146 64 14;
+  --color-warning-surface: 254 243 199;
+}

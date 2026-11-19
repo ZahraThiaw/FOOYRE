@@ -52,7 +52,7 @@ Réponse :
   "instance": "/api/v1/sales/0f8c.../confirm",
   "code": "INSUFFICIENT_STOCK",
   "traceId": "6b1f2c...",
-  "errors": [ { "field": "lines[0].quantity", "message": "doit être supérieur à 0" } ]
+  "errors": [ { "field": "lines[0].quantity", "code": "INVALID_VALUE", "message": "doit être supérieur à 0" } ]
 }
 ```
 
@@ -61,14 +61,19 @@ Réponse :
 | 400 | Requête mal formée / validation (`VALIDATION_ERROR`) |
 | 401 | Non authentifié, jeton expiré, invalide ou révoqué (`SESSION_REVOKED`) |
 | 403 | Authentifié mais permission insuffisante **dans sa propre entreprise** (`FORBIDDEN`), contrôle CSRF échoué (`CSRF_CHECK_FAILED`), IA non activée pour l'entreprise (`AI_NOT_ENABLED`), route hors du périmètre ou du mode d'un accès support (`SUPPORT_SCOPE_DENIED`) |
-| 404 | Ressource inexistante **ou appartenant à un autre tenant** |
+| 404 | Ressource inexistante **ou appartenant à un autre tenant** (`NOT_FOUND`) |
 | 409 | Conflit métier (`INSUFFICIENT_STOCK`, `SALE_ALREADY_CONFIRMED`, `SALE_ALREADY_CANCELLED`, `OPTIMISTIC_LOCK`, `IDEMPOTENCY_KEY_REUSED`, `CURRENCY_LOCKED`, `BUSINESS_CONTEXT_MISMATCH`) |
-| 422 | Règle métier non respectée (`PAYMENT_EXCEEDS_BALANCE`, `INVALID_STATE_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`, `CREDIT_INSUFFICIENT`, `CUSTOMER_REQUIRED_FOR_CREDIT`, `CANCELLATION_SETTLEMENT_MISMATCH`) |
+| 422 | Règle métier non respectée (`PAYMENT_EXCEEDS_BALANCE`, `INVALID_STATE_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`, `CREDIT_INSUFFICIENT`, `CUSTOMER_REQUIRED_FOR_CREDIT`, `CANCELLATION_SETTLEMENT_MISMATCH`, `AI_INSUFFICIENT_DATA`) |
 | 429 | Limite de débit ou quota dépassé (`RATE_LIMITED`, `AI_QUOTA_EXCEEDED`) + `Retry-After` |
-| 503 | Dépendance indisponible (`AI_UNAVAILABLE`) |
-| 500 | Erreur interne (message générique + `traceId`) |
+| 502 | Sortie de l'IA invalide après validation de schéma (`AI_INVALID_OUTPUT`, §2.7) |
+| 503 | Dépendance indisponible (`AI_UNAVAILABLE`) ; IA désactivée globalement ou non approuvée en production (`AI_DISABLED`, §2.7) |
+| 500 | Erreur interne (`INTERNAL_ERROR`, message générique + `traceId`) |
 
-Les codes `code` sont stables : le frontend les traduit dans la langue de l'utilisateur à partir de ses catalogues (français au lancement — D16). Les champs `title` et `detail` sont rédigés en français par le backend (`MessageSource`) et ne servent qu'en complément.
+Les codes `code` sont stables : le frontend les traduit dans la langue de l'utilisateur à partir de ses catalogues (français au lancement — D16). Les champs `title` et `detail` sont rédigés en français par le backend (`MessageSource`) et ne servent qu'en complément : **le frontend ne les affiche jamais** (ils peuvent être techniques).
+
+**Erreurs de validation par champ** (`errors[]`, avec `VALIDATION_ERROR`) : chaque entrée porte `field` (chemin du champ), un `code` stable et un `message` facultatif (complément, jamais affiché tel quel). Codes initiaux : `REQUIRED`, `INVALID_FORMAT`, `TOO_LONG`, `TOO_SHORT`, `INVALID_VALUE`, `ALREADY_EXISTS`. Un code inconnu du frontend est affiché comme `INVALID_VALUE`.
+
+**Interprétation côté frontend** (`frontend/src/shared/api/errorMessages.ts`, unique point de traduction) : code connu → message du code ; sinon message du statut (400, 401, 403, 404, 409, 422, 429, 5xx) ; référence `traceId` affichée pour les 5xx ; `Retry-After` (secondes ou date HTTP) affiché pour 429, **sans nouvelle tentative automatique** (aucune relance n'est faite sur une 4xx). Codes produits par le frontend lui‑même, jamais par le backend : `NETWORK_ERROR` (aucune réponse), `TIMEOUT` (délai dépassé), `UNKNOWN_ERROR` (réponse sans code exploitable), et `501 MOCK_NOT_IMPLEMENTED` (mode démonstration local uniquement, route non simulée — jamais en production).
 
 ### 1.4 Idempotence
 En‑tête `Idempotency-Key: <uuid>` **obligatoire** sur : création de vente, confirmation de vente, annulation de vente, ajout de paiement (y compris règlement par avoir), remboursement, création de dépense, demande de commande publique ; **facultatif** sur la création de client (obligatoire lorsqu'elle provient du mode hors ligne). Rejeu identique → même réponse ; même clé avec un corps différent → `409 IDEMPOTENCY_KEY_REUSED`. Conservation de l'enregistrement d'idempotence : 24 h.
@@ -110,12 +115,43 @@ Légende rôles : **O** = BUSINESS_OWNER, **M** = BUSINESS_MANAGER, **E** = EMPL
 | POST | `/auth/refresh` | P (cookie + contrôles CSRF) | Rotation du refresh token, nouveau jeton d'accès |
 | POST | `/auth/logout` | tous (cookie + contrôles CSRF) | Révoque la session courante, supprime le cookie |
 | POST | `/auth/logout-all` | tous | Révoque toutes les sessions de l'utilisateur |
-| POST | `/auth/switch-business` | tous (Bearer + cookie + contrôles CSRF) | `{ "businessId": "…" }` : vérifie l'appartenance active, émet un nouveau jeton, fait tourner le refresh token ; `404` si non membre |
+| POST | `/auth/switch-business` | tous (Bearer + cookie + contrôles CSRF) | `{ "businessId": "…" }` : vérifie l'appartenance active, recalcule les permissions, émet un nouveau jeton, fait tourner le refresh token ; `404 NOT_FOUND` si non membre. Réponse : voir ci‑dessous |
 | POST | `/auth/password/forgot`, `/auth/password/reset` | P | Réinitialisation (canal d'envoi : point ouvert O13 — email, SMS ou les deux) ; révoque toutes les sessions |
 | POST | `/me/password` | tous | Changement de mot de passe ; révoque les autres sessions |
-| GET | `/me` | tous | Profil, `locale`, entreprise active, rôle, **permissions effectives**, liste des entreprises dont l'utilisateur est membre ; pour l'employé, sa limite de remise (D14) |
+| GET | `/me` | tous | Profil, `locale`, entreprise active, rôle, **permissions effectives**, liste des entreprises dont l'utilisateur est membre ; pour l'employé, sa limite de remise (D14). Contrat : voir ci‑dessous |
 | PUT | `/me/preferences` | tous | Préférence de langue (`locale`), parmi les locales prises en charge (D16) |
 | POST | `/invitations/{token}/accept` | P | Acceptation d'une invitation |
+
+#### Contrat de `GET /me` (validé — lot 3, R8)
+```jsonc
+{
+  "id": "uuid",
+  "email": "…",
+  "fullName": "…",
+  "locale": "fr",
+  "platformAdmin": false,                    // attribut GLOBAL de l'utilisateur (ADR‑05)
+  "activeBusiness": { "id": "uuid", "name": "…", "currency": "XOF" },      // ou null
+  "activeMembership": {                                                   // ou null
+    "id": "uuid",                            // = claim mid
+    "role": "BUSINESS_OWNER | BUSINESS_MANAGER | EMPLOYEE",
+    "employeeMaxDiscountRate": "10.00"       // chaîne décimale, renseignée pour EMPLOYEE (D14, forme provisoire O11), sinon null
+  },
+  "permissions": ["BUSINESS_READ", "…"],     // permissions effectives dans le contexte actif (architecture §5.3)
+  "businesses": [ { "id": "uuid", "name": "…", "role": "EMPLOYEE" } ]     // appartenances ACTIVES uniquement
+}
+```
+Règles :
+- `activeBusiness` et `activeMembership` sont **toujours cohérents** : tous deux renseignés ou tous deux `null` (le frontend traite toute incohérence comme une erreur).
+- **Entreprise active à la connexion** : si l'utilisateur a plusieurs appartenances actives, le backend restaure la dernière entreprise sélectionnée si son appartenance est toujours active ; sinon `activeBusiness` et `activeMembership` valent `null` et le frontend demande de choisir une entreprise (`POST /auth/switch-business`).
+- `PLATFORM_ADMIN` sans octroi d'accès support : `platformAdmin: true`, `activeBusiness: null`, `activeMembership: null`, permissions `PLATFORM_*` uniquement (aucune permission métier — D12).
+- Les rôles et permissions renvoyés servent **uniquement à l'affichage** ; le backend vérifie chaque requête à partir du jeton (appartenance `ACTIVE`, rôle, permissions recalculées).
+- Erreurs : `401` (session absente, expirée ou révoquée → le frontend affiche « session expirée »), `403` (compte non autorisé).
+
+#### Réponse de `POST /auth/switch-business` (validé — lot 3, R8)
+```json
+{ "accessToken": "…", "expiresIn": 900 }
+```
+Le refresh token tourne via le cookie sécurisé (§1.1). Le `businessId` envoyé n'est qu'une demande : il ne choisit jamais le tenant sans vérification de l'appartenance active. Côté frontend (ADR‑04) : nouveau jeton en mémoire, cache TanStack Query entièrement réinitialisé, puis rechargement de `/me` ; en cas d'échec, ni le jeton ni le cache ne sont modifiés.
 
 ### 2.2 Entreprise et équipe (`business`)
 | Méthode | Route | Rôles |

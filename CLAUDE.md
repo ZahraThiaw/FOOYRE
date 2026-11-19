@@ -105,15 +105,37 @@ Les décisions **D1 à D20** (`cahier-des-charges.md` §8.1) sont validées : ne
 - Abonnements : formules, fonctionnalités, quotas et limites sont des **données** (pas de constantes dans le code) ; aucun tarif figé ; aucun paiement d'abonnement.
 - API : conventions de `docs/api-specification.md` (préfixe `/api/v1`, Problem Details, pagination, codes d'erreur stables).
 - Frontend : TypeScript strict, organisation par `features/`, appels réseau via TanStack Query + Axios dans `features/*/api.ts`, styles Tailwind, icônes Lucide, formatage via `Intl` (`fr-SN`, XOF), mobile‑first.
+  - Versions figées dans `frontend/package-lock.json` (`docs/architecture.md` ADR‑12) ; Tailwind CSS **3.4** (pas la v4) pour la compatibilité navigateurs ; cible provisoire Chrome 87, Edge 88, Firefox 78, Safari/iOS 14, déclarée à deux endroits à garder alignés (`build.target` de `vite.config.ts` et `browserslist` de `package.json`). Pas d'`await` de premier niveau ; éviter les utilitaires `*-dvh`, `has-*`, `@container`, `text-balance` et `gap` sur un conteneur flex.
+  - Montants affichés avec `formatMoney` (chaîne décimale, jamais convertie en `number`).
+  - `lib` TypeScript limitée à **ES2020** (`tsconfig.app.json`) : ne pas la relever sans vérifier la cible navigateurs (test de garde `src/test/browserCompatibility.test.ts`). La bibliothèque `DOM` n'étant pas versionnée, les API Web récentes restent à vérifier manuellement.
+  - Textes d'interface uniquement dans `src/shared/i18n/locales/`. Contrôles automatiques réellement appliqués (`eslint.config.js`, testés par `src/test/i18nLintRules.test.ts`) :
+    - **Détecté dans les `.tsx`** (`i18next/no-literal-string`, mode `jsx-only`, `should-validate-template`) : texte JSX ; chaînes et gabarits (`` `…` ``) dans les expressions JSX, y compris ternaires et concaténations ; attributs visibles `alt`, `aria-label`, `aria-description`, `aria-placeholder`, `aria-roledescription`, `aria-valuetext`, `label`, `placeholder`, `title` (valeur en chaîne ou en gabarit, y compris via un objet étalé `{...{ 'aria-label': '…' }}`).
+    - **Détecté dans les `.ts` et `.tsx`** (`no-restricted-syntax`, uniquement les formes listées) :
+      - affectation de texte (chaîne contenant une lettre ou gabarit) à une propriété DOM visible (`textContent`, `innerText`, `innerHTML`, `outerHTML`, `title`, `placeholder`, `alt`, `label`, `aria*`), en notation pointée ou entre crochets (`el['textContent']`), directement, dans un ternaire, après `||`/`??`, ou dans une concaténation `+` lorsque le texte est suivi d'au plus deux opérateurs `+` (ex. `'Bonjour ' + n`, `n + ' et ' + m`, `n + n + n + ' fin'`) ;
+      - `setAttribute` / `setAttributeNS` (notation pointée ou entre crochets, nom d'attribut en chaîne ou en gabarit) sur un attribut visible avec une valeur texte ;
+      - `createTextNode`, `insertAdjacentText`, `append`, `prepend`, `replaceChildren` avec un texte en dur ;
+      - tout appel direct à `alert`, `confirm`, `prompt`, `window.*`, `globalThis.*`.
+    - **Faux positifs connus** : `FormData` / `URLSearchParams` / `Headers` `.append('nom', …)` (préférer `.set(…)`, sinon exception justifiée en commentaire) ; une chaîne technique passée à une fonction à l'intérieur du JSX (ex. `{format(d, 'fr-SN')}`) → déplacer la valeur hors du JSX (constante) ou justifier une exception.
+    - **Non détecté** (revue de code obligatoire pour tout texte visible) : texte placé dans une variable ou une constante puis affiché ; constantes et composants nommés entièrement en majuscules (exemptés par le plugin) ; attributs ou props non listés (ex. `text="…"`, `value="…"`) ; libellés définis dans des fichiers `.ts` (tableaux de correspondance) ; texte suivi de trois opérateurs `+` ou plus dans une concaténation (ex. `'Début ' + a + b + c`) ; alias de fonctions (`const a = alert`), appels indirects ou dynamiques (`(0, alert)(…)`, `self.alert`, `window['alert']`), `Object.assign(el, { textContent: … })` ; messages d'erreur affichés à l'utilisateur. Les messages techniques (`new Error(…)`, journaux, codes, clés, routes) ne doivent jamais être affichés tels quels à l'utilisateur.
+  - Données fictives : uniquement dans `src/mocks/`, actives seulement avec le serveur de développement et `VITE_ENABLE_MOCKS=true`, ou dans les tests ; jamais dans un build (le build échoue sinon et `scripts/verify-build.mjs` contrôle `dist/`).
+  - Variables publiques uniquement dans `frontend/.env.example` ; aucun secret dans une variable `VITE_*`.
 - Pas de dépendance nouvelle sans justification (utilité, maintenance, licence).
 - Commits en français ou en anglais, format conventionnel (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 
-## 12. Commandes (à compléter en phase 1)
+## 12. Commandes
 ```
-# Backend
+# Frontend (Node.js 24 LTS ≥ 24.15)
+cd frontend
+npm ci                  # installation reproductible depuis package-lock.json
+npm run dev             # serveur de développement (données fictives si VITE_ENABLE_MOCKS=true dans .env.local)
+npm run typecheck       # vérification TypeScript
+npm run lint            # ESLint (0 avertissement toléré)
+npm run test            # Vitest
+npm run build           # vérification des types + build + contrôle anti‑données fictives de dist/
+npm run check           # typecheck + lint + test + build (équivalent CI)
+
+# Backend (à compléter)
 cd backend && ./mvnw verify
-# Frontend
-cd frontend && npm ci && npm run test && npm run build
-# Environnement local
+# Environnement local (à compléter)
 docker compose up -d
 ```
