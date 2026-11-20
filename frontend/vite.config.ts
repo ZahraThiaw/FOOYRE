@@ -12,8 +12,8 @@ import { defineConfig } from 'vitest/config';
  */
 const BROWSER_TARGETS = ['chrome87', 'edge88', 'firefox78', 'safari14', 'ios14'];
 
-/** Backend local (développement uniquement). Valeur non sensible. */
-const DEV_API_PROXY_TARGET = 'http://localhost:8080';
+/** Backend local (développement uniquement), à l'écoute sur la boucle locale IPv4. Valeur non sensible. */
+const DEV_API_PROXY_TARGET = 'http://127.0.0.1:8080';
 
 const src = (path: string) => fileURLToPath(new URL(`./src/${path}`, import.meta.url));
 
@@ -53,6 +53,9 @@ export default defineConfig(({ command, mode }) => {
       sourcemap: false,
     },
     server: {
+      // Port fixe : si 5173 est occupé, Vite échoue au lieu de basculer en silence sur 5174
+      // (origine différente de APP_PUBLIC_BASE_URL → 403 CSRF_CHECK_FAILED à la connexion).
+      strictPort: true,
       proxy: {
         '/api': { target: DEV_API_PROXY_TARGET, changeOrigin: false },
       },

@@ -59,11 +59,11 @@ Réponse :
 | Statut | Usage |
 |---|---|
 | 400 | Requête mal formée / validation (`VALIDATION_ERROR`) |
-| 401 | Non authentifié, jeton expiré, invalide ou révoqué (`SESSION_REVOKED`) |
+| 401 | Non authentifié, jeton expiré, invalide ou révoqué (`SESSION_REVOKED`) ; connexion refusée — e-mail inconnu, mot de passe erroné ou compte inactif, indistinguables (`INVALID_CREDENTIALS`, MVP-1) |
 | 403 | Authentifié mais permission insuffisante **dans sa propre entreprise** (`FORBIDDEN`), contrôle CSRF échoué (`CSRF_CHECK_FAILED`), IA non activée pour l'entreprise (`AI_NOT_ENABLED`), route hors du périmètre ou du mode d'un accès support (`SUPPORT_SCOPE_DENIED`) |
 | 404 | Ressource inexistante **ou appartenant à un autre tenant** (`NOT_FOUND`) |
-| 409 | Conflit métier (`INSUFFICIENT_STOCK`, `SALE_ALREADY_CONFIRMED`, `SALE_ALREADY_CANCELLED`, `OPTIMISTIC_LOCK`, `IDEMPOTENCY_KEY_REUSED`, `CURRENCY_LOCKED`, `BUSINESS_CONTEXT_MISMATCH`) |
-| 422 | Règle métier non respectée (`PAYMENT_EXCEEDS_BALANCE`, `INVALID_STATE_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`, `CREDIT_INSUFFICIENT`, `CUSTOMER_REQUIRED_FOR_CREDIT`, `CANCELLATION_SETTLEMENT_MISMATCH`, `AI_INSUFFICIENT_DATA`) |
+| 409 | Conflit métier (`INSUFFICIENT_STOCK`, `STOCK_ALREADY_INITIALIZED`, `SALE_ALREADY_CONFIRMED`, `SALE_ALREADY_CANCELLED`, `OPTIMISTIC_LOCK`, `IDEMPOTENCY_KEY_REUSED`, `CURRENCY_LOCKED`, `BUSINESS_CONTEXT_MISMATCH`) |
+| 422 | Règle métier non respectée (`STOCK_NOT_INITIALIZED`, `PRODUCT_ARCHIVED`, `PAYMENT_EXCEEDS_BALANCE`, `INVALID_STATE_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`, `CREDIT_INSUFFICIENT`, `CUSTOMER_REQUIRED_FOR_CREDIT`, `CANCELLATION_SETTLEMENT_MISMATCH`, `AI_INSUFFICIENT_DATA`) |
 | 429 | Limite de débit ou quota dépassé (`RATE_LIMITED`, `AI_QUOTA_EXCEEDED`) + `Retry-After` |
 | 502 | Sortie de l'IA invalide après validation de schéma (`AI_INVALID_OUTPUT`, §2.7) |
 | 503 | Dépendance indisponible (`AI_UNAVAILABLE`) ; IA désactivée globalement ou non approuvée en production (`AI_DISABLED`, §2.7) |
@@ -71,12 +71,12 @@ Réponse :
 
 Les codes `code` sont stables : le frontend les traduit dans la langue de l'utilisateur à partir de ses catalogues (français au lancement — D16). Les champs `title` et `detail` sont rédigés en français par le backend (`MessageSource`) et ne servent qu'en complément : **le frontend ne les affiche jamais** (ils peuvent être techniques).
 
-**Erreurs de validation par champ** (`errors[]`, avec `VALIDATION_ERROR`) : chaque entrée porte `field` (chemin du champ), un `code` stable et un `message` facultatif (complément, jamais affiché tel quel). Codes initiaux : `REQUIRED`, `INVALID_FORMAT`, `TOO_LONG`, `TOO_SHORT`, `INVALID_VALUE`, `ALREADY_EXISTS`. Un code inconnu du frontend est affiché comme `INVALID_VALUE`.
+**Erreurs de validation par champ** (`errors[]`, avec `VALIDATION_ERROR`) : chaque entrée porte `field` (chemin du champ), un `code` stable et un `message` facultatif (complément, jamais affiché tel quel). Codes initiaux : `REQUIRED`, `INVALID_FORMAT`, `TOO_LONG`, `TOO_SHORT`, `INVALID_VALUE`, `ALREADY_EXISTS` ; ajoutés : `ARCHIVED` (MVP-2), `LOCKED` (MVP-3 : valeur qui ne peut plus être modifiée, ex. unité d'un produit dont le stock est suivi). Un code inconnu du frontend est affiché comme `INVALID_VALUE`.
 
 **Interprétation côté frontend** (`frontend/src/shared/api/errorMessages.ts`, unique point de traduction) : code connu → message du code ; sinon message du statut (400, 401, 403, 404, 409, 422, 429, 5xx) ; référence `traceId` affichée pour les 5xx ; `Retry-After` (secondes ou date HTTP) affiché pour 429, **sans nouvelle tentative automatique** (aucune relance n'est faite sur une 4xx). Codes produits par le frontend lui‑même, jamais par le backend : `NETWORK_ERROR` (aucune réponse), `TIMEOUT` (délai dépassé), `UNKNOWN_ERROR` (réponse sans code exploitable), et `501 MOCK_NOT_IMPLEMENTED` (mode démonstration local uniquement, route non simulée — jamais en production).
 
 ### 1.4 Idempotence
-En‑tête `Idempotency-Key: <uuid>` **obligatoire** sur : création de vente, confirmation de vente, annulation de vente, ajout de paiement (y compris règlement par avoir), remboursement, création de dépense, demande de commande publique ; **facultatif** sur la création de client (obligatoire lorsqu'elle provient du mode hors ligne). Rejeu identique → même réponse ; même clé avec un corps différent → `409 IDEMPOTENCY_KEY_REUSED`. Conservation de l'enregistrement d'idempotence : 24 h.
+En‑tête `Idempotency-Key: <uuid>` **obligatoire** sur : opérations de stock (initialisation, entrée, sortie, ajustement — MVP-3), création de vente, confirmation de vente, annulation de vente, ajout de paiement (y compris règlement par avoir), remboursement, création de dépense, demande de commande publique ; **facultatif** sur la création de client (obligatoire lorsqu'elle provient du mode hors ligne). Rejeu identique → même réponse ; même clé avec un corps différent → `409 IDEMPOTENCY_KEY_REUSED`. Conservation de l'enregistrement d'idempotence : 24 h.
 
 **Unicité durable** (ADR‑09) : la clé est aussi enregistrée sur la ressource créée (vente, paiement, client, dépense) avec une contrainte d'unicité par entreprise. Après expiration des 24 h — cas typique d'une opération restée hors ligne — un rejeu ne crée toujours pas de doublon : le serveur renvoie la ressource existante si le contenu est identique, `409 IDEMPOTENCY_KEY_REUSED` sinon.
 
@@ -111,7 +111,7 @@ Légende rôles : **O** = BUSINESS_OWNER, **M** = BUSINESS_MANAGER, **E** = EMPL
 | Méthode | Route | Rôles | Description |
 |---|---|---|---|
 | POST | `/auth/register` | P | Créer un compte + une première entreprise (devient O) |
-| POST | `/auth/login` | P | Connexion → `accessToken` + cookie de rafraîchissement + liste des entreprises |
+| POST | `/auth/login` | P (contrôles `Origin` + `X-Requested-With`) | Connexion `{ "email", "password" }` → `{ "accessToken", "expiresIn" }` + cookie de rafraîchissement ; la liste des entreprises est lue ensuite par `GET /me` (MVP-1). Échec : `401 INVALID_CREDENTIALS` ; trop de tentatives (MVP-1.1) : `429 RATE_LIMITED` + `Retry-After`, même réponse que le compte existe ou non |
 | POST | `/auth/refresh` | P (cookie + contrôles CSRF) | Rotation du refresh token, nouveau jeton d'accès |
 | POST | `/auth/logout` | tous (cookie + contrôles CSRF) | Révoque la session courante, supprime le cookie |
 | POST | `/auth/logout-all` | tous | Révoque toutes les sessions de l'utilisateur |
@@ -156,10 +156,10 @@ Le refresh token tourne via le cookie sécurisé (§1.1). Le `businessId` envoy�
 ### 2.2 Entreprise et équipe (`business`)
 | Méthode | Route | Rôles |
 |---|---|---|
-| GET | `/business` | O,M,E (profil ; pour E, uniquement les informations nécessaires à la saisie d'une vente : devise, TVA activée, mode HT/TTC) |
+| GET | `/business` | O,M,E (profil ; pour E, uniquement les informations nécessaires à la saisie d'une vente : devise, TVA activée, mode HT/TTC). MVP-1 : `{ id, name, legalName, currency, timezone, defaultLocale }` de l'entreprise ACTIVE (jamais d'identifiant d'entreprise en entrée), permission `BUSINESS_READ` |
 | PUT | `/business/profile` | O,M (nom, contacts, logo, langue par défaut) |
-| GET | `/business/settings` | O,M (paramètres financiers et sensibles ; M en lecture seule — D20) |
-| PUT | `/business/settings` | O (TVA, mode HT/TTC, taux, stock négatif, devise — devise non modifiable après la première transaction — D20) |
+| GET | `/business/settings` | O,M (paramètres financiers et sensibles ; M en lecture seule — D20). **MVP-3 : `{ "allowNegativeStock": false }`** (seul paramètre implémenté ; `BUSINESS_SETTINGS_READ`) |
+| PUT | `/business/settings` | O (TVA, mode HT/TTC, taux, stock négatif, devise — devise non modifiable après la première transaction — D20). **MVP-3 : `{ "allowNegativeStock": true|false }`** (`BUSINESS_SETTINGS_UPDATE`, OWNER seul ; journalisé `SETTINGS_CHANGED` uniquement si la valeur change ; désactivé par défaut) |
 | GET | `/business/sales-policy` | O,M (limite de remise des employés) |
 | PUT | `/business/sales-policy` | O,M (`{ "employeeMaxDiscountRate": "10.00" }` — forme provisoire, O11 ; modification journalisée — D14) |
 | GET | `/business/members` | O |
@@ -180,9 +180,9 @@ Le refresh token tourne via le cookie sécurisé (§1.1). Le `businessId` envoy�
 | PUT / DELETE | `/categories/{id}` | O,M (DELETE = archivage) |
 | GET / POST | `/products` | GET O,M,E · POST O,M |
 | GET / PUT / DELETE | `/products/{id}` | GET O,M,E · PUT/DELETE O,M |
-| GET | `/products/{id}/stock-movements` | O,M |
-| POST | `/stock-adjustments` | O,M (motif obligatoire) |
-| GET | `/stock/alerts` | O,M,E |
+| GET | `/stock`, `/stock/summary`, `/stock/alerts`, `/stock/movements`, `/stock/{productId}`, `/stock/{productId}/movements` | O,M,E (`STOCK_READ` ; valeur estimée réservée à `COST_READ` : O,M) — contrat MVP-3 ci‑dessous |
+| POST | `/stock/{productId}/initialize`, `/entries`, `/exits`, `/adjustments` | O,M (`STOCK_ADJUST`, `Idempotency-Key` obligatoire, motif obligatoire sauf initialisation) |
+| PUT | `/stock/{productId}/minimum-quantity` | O,M (`STOCK_ADJUST`) |
 | GET / POST | `/purchases` | O,M |
 | GET | `/purchases/{id}` | O,M |
 | POST | `/purchases/{id}/receive` | O,M (entrée en stock + recalcul du CMP) || POST | `/purchases/{id}/cancel` | O,M (si reçu : mouvement compensatoire de sortie, soumis au contrôle de stock négatif) |
@@ -194,6 +194,59 @@ Le refresh token tourne via le cookie sécurisé (§1.1). Le `businessId` envoy�
 | GET | `/customers/{id}/credits` | O,M (`CUSTOMER_BALANCE_READ` : avoirs du client — numéro, montant, solde restant, origine) |
 | GET / POST | `/suppliers` | O,M |
 | GET / PUT / DELETE | `/suppliers/{id}` | O,M |
+
+#### Catalogue — contrat implémenté (MVP-2, 2026-11-19)
+- `GET /categories?status=ACTIVE|ARCHIVED|ALL&page&size&sort=name|createdAt,asc|desc` (défaut `ACTIVE`, tri `name,asc` sans tenir compte de la casse) → page de `{ id, name, description, status, activeProductCount, createdAt, updatedAt, version }`. `activeProductCount` est calculé en base.
+- `GET /categories/{id}` ; `POST /categories` `{ name, description }` → `201` + `Location` ; `PUT /categories/{id}` `{ name, description, version }` ; `DELETE /categories/{id}` = archivage, `204`, idempotent.
+- `GET /products?q&categoryId&status&page&size&sort=name|createdAt|salePrice,asc|desc` : `q` (≤ 100 caractères) cherche dans le nom, le SKU et le code-barres, sans tenir compte de la casse, caractères `%` / `_` pris littéralement ; `size` 1 à 100 (défaut 20) ; tri sur liste blanche (tout autre champ → `400`).
+- Produit : `{ id, name, description, sku, barcode, unit, category: { id, name, status } | null, purchasePrice?, salePrice, currency, status, createdAt, updatedAt, version }`. `unit` ∈ `PIECE, UNIT, KILOGRAM, GRAM, LITRE, MILLILITRE, METRE, PACK, CARTON, LOT`. Montants en chaînes : `salePrice` ET `purchasePrice` au plus avec les décimales de la devise (ISO 4217 : XOF 0 → `"3500"`, EUR 2), refusés sinon (`400 INVALID_VALUE`), jamais arrondis — décision de la porteuse du projet du 2026-11-19. Un prix d'achat enregistré avant cette règle (ex. `1800.5` en XOF) est renvoyé tel quel. **`purchasePrice` est absent de la réponse sans `COST_READ`** (et ignoré à l'écriture). C'est un prix d'achat de RÉFÉRENCE saisi, distinct du coût moyen pondéré (D1, module de stock).
+- `POST /products`, `PUT /products/{id}` (avec `version`), `DELETE /products/{id}` = archivage. Archivage par `DELETE` conformément à la convention « DELETE uniquement pour archivage de référentiels » (§1).
+- Erreurs : `400 VALIDATION_ERROR` avec `errors[{field, code}]` — `REQUIRED`, `TOO_LONG`, `INVALID_FORMAT` (SKU, code-barres, nombre illisible, unité inconnue), `INVALID_VALUE` (prix négatif ou trop de décimales — jamais arrondi), `ALREADY_EXISTS` (nom de catégorie, SKU, code-barres parmi les éléments ACTIFS de l'entreprise), **`ARCHIVED`** (nouveau code de champ : catégorie archivée choisie pour un produit) ; `404 NOT_FOUND` (ressource ou catégorie référencée inexistante ou d'une autre entreprise) ; `409 OPTIMISTIC_LOCK` (version périmée) ; `422 INVALID_STATE_TRANSITION` (modifier un élément archivé) ; `403` sans `CATALOG_WRITE` ou sans entreprise active.
+- **MVP-3** : `PUT /products/{id}` refuse le changement d'unité dès que le stock du produit est initialisé (`400 VALIDATION_ERROR`, `unit` = `LOCKED`) : les quantités existantes perdraient leur sens.
+
+#### Ventes, tableau de bord, assistante — contrat implémenté (2026-11-19)
+- `GET /sales?status=ALL|DRAFT|CONFIRMED|CANCELLED&customerId&page&size` (`SALE_READ_ALL`) ; `GET /sales/{id}` → vente (`quote` figé si confirmée, recalculé aux prix actuels si brouillon ; `unitCost`, `grossMargin`, `costsComplete` uniquement avec `COST_READ`).
+- `POST /sales/quote` (`SALE_CREATE`) `{ customerId?, lines: [{ productId, quantity, discount? }], globalDiscount? }` → récapitulatif calculé par le serveur, sans enregistrement (`discountWithinLimit`).
+- `POST /sales` (`Idempotency-Key` obligatoire) → brouillon `201` ; `PUT /sales/{id}` (`version`) ; `POST /sales/{id}/confirm` (`Idempotency-Key` obligatoire) → `200` (rejeu : `Idempotent-Replay: true`) ; `POST /sales/{id}/cancel` : abandon d'un BROUILLON uniquement.
+- Erreurs : `404` (vente, produit ou client d'une autre entreprise), `409 INSUFFICIENT_STOCK`, `409 SALE_ALREADY_CONFIRMED`, `409 IDEMPOTENCY_KEY_REUSED`, `422 DISCOUNT_LIMIT_EXCEEDED` (journalisé), `422 PRODUCT_ARCHIVED`, `422 STOCK_NOT_INITIALIZED`, `422 INVALID_STATE_TRANSITION` (client archivé), `400` (`lines[i].quantity`, `lines[i].discount`, `globalDiscount`).
+- `GET /dashboard` (`DASHBOARD_FULL` ou `DASHBOARD_OWN_DAY`) : `today`/`month` (montants, `null` sans `DASHBOARD_FULL`), compteurs, dernières ventes, `paymentsConnected: false`.
+- `GET/PUT /business/settings` : ajout de `vatEnabled`, `vatRate`, `priceEntryMode` (`HT`|`TTC`) — modification OWNER seul ; `GET/PUT /business/sales-policy` `{ employeeMaxDiscountRate }` (`SALES_POLICY_MANAGE`) ; `GET/PUT /business/ai-consent` (`AI_CONSENT_MANAGE`).
+- `GET /assistant/status`, `POST /assistant/messages` `{ question (≤ 1000), history? (≤ 12 tours) }` (`AI_USE` : OWNER, MANAGER) → `{ answer, insufficientData, proposal? }` ; erreurs `503 AI_DISABLED`, `503 AI_NOT_CONFIGURED` (nouveau), `403 AI_NOT_ENABLED`, `429 AI_QUOTA_EXCEEDED`, `503 AI_UNAVAILABLE`, `502 AI_INVALID_OUTPUT`.
+- `POST /stock/{productId}/initialize` : la quantité initiale est STRICTEMENT positive (comportement existant ; la mention « ≥ 0 » ci-dessous est corrigée).
+
+#### Clients — contrat implémenté (MVP-4A, 2026-11-19)
+Permissions existantes (matrice D3, aucune nouvelle) : `CUSTOMER_READ` (O,M,E), `CUSTOMER_WRITE` (O,M,E — création et modification, utiles à la vente au comptoir), `CUSTOMER_ARCHIVE` (O,M). Le `businessId` vient uniquement du jeton ; un client d'une autre entreprise → `404`.
+- `GET /customers?q&status&page&size&sort` : `status` ∈ `ACTIVE` (défaut), `ARCHIVED`, `ALL` ; `q` (≤ 100 caractères) cherche dans le nom et l'e-mail (casse ignorée, `%`/`_` littéraux) et, s'il contient au moins 3 chiffres, dans les CHIFFRES du téléphone (mise en forme ignorée ; préfixe `00` = `+`) ; `sort` ∈ `name`, `createdAt`, `updatedAt` (liste blanche ; défaut `name,asc`, casse ignorée) ; `size` 1 à 100.
+- Client : `{ id, name, phone, email, address, notes, status, archivedAt, createdAt, updatedAt, version }`.
+- `POST /customers` `{ name?, phone?, email?, address?, notes? }` → `201` + `Location`. **Au moins un nom ou un téléphone** (`name` = `REQUIRED` sinon). `Idempotency-Key` (UUID) facultatif : rejeu identique → `200` + `Idempotent-Replay: true` (client existant) ; même clé, autre contenu → `409 IDEMPOTENCY_KEY_REUSED` (unicité durable, `UNIQUE (business_id, idempotency_key)`).
+- `GET /customers/{id}` ; `PUT /customers/{id}` `{ …, version }` (`version` obligatoire ; périmée → `409 OPTIMISTIC_LOCK`) ; `DELETE /customers/{id}` = archivage, `204`.
+- Règles : nom ≤ 150 (espaces superflus supprimés) ; téléphone ≤ 30 caractères, chiffres, espaces, `( ) . -` et un seul `+`, de 6 à 15 chiffres, conservé tel que saisi (`INVALID_FORMAT` sinon) ; e-mail ≤ 254, format simple, enregistré en minuscules ; adresse ≤ 500 ; notes ≤ 2000. **Aucune unicité** sur le nom ni le téléphone (homonymes, numéros partagés).
+- Erreurs : `400 VALIDATION_ERROR` (`REQUIRED`, `TOO_LONG`, `INVALID_FORMAT`) ; `404 NOT_FOUND` ; `409 OPTIMISTIC_LOCK` ; `409 ALREADY_ARCHIVED` (nouveau code : client déjà archivé) ; `422 INVALID_STATE_TRANSITION` (modifier un client archivé) ; `403` sans permission.
+- Audit : `CUSTOMER_CREATED`, `CUSTOMER_UPDATED`, `CUSTOMER_ARCHIVED` (cible `CUSTOMER` + identifiant) — aucune donnée personnelle ; un rejeu idempotent n'est pas journalisé.
+- Non implémentés (lots suivants) : historique des ventes du client, solde et avoirs (`CUSTOMER_BALANCE_READ`), désarchivage.
+
+#### Stock — contrat implémenté (MVP-3, 2026-11-19)
+Remplace les routes provisoires `/products/{id}/stock-movements` et `/stock-adjustments` de la conception initiale. Le `businessId` vient uniquement du jeton ; un produit d'une autre entreprise → `404`.
+- **Lecture** (`STOCK_READ` : O,M,E) :
+  - `GET /stock?q&categoryId&status&page&size&sort` : produits **actifs** avec leur stock (y compris non initialisés). `status` ∈ `ALL` (défaut), `TRACKED`, `ALERT` (faible ou rupture), `IN_STOCK`, `LOW_STOCK`, `OUT_OF_STOCK`, `NOT_INITIALIZED` ; `sort` ∈ `name`, `quantity`, `updatedAt` (`asc|desc`, liste blanche) ; `q` cherche nom et SKU (≤ 100 caractères, `%`/`_` littéraux).
+  - `GET /stock/alerts` : produits `LOW_STOCK` ou `OUT_OF_STOCK` (paginé).
+  - `GET /stock/summary` → `{ trackedProducts, notInitializedProducts, inStock, lowStock, outOfStock, estimatedValue? }`. `estimatedValue` = `{ amount, currency, productsWithoutReferencePrice }`, **présent uniquement avec `COST_READ`** : somme, sur les produits à quantité positive, de quantité × prix d'achat **de référence** du catalogue, arrondie ligne par ligne (HALF_UP, décimales de la devise). C'est une **estimation**, ni le coût réel ni une valeur comptable (le CMP n'existe pas encore).
+  - `GET /stock/{productId}` → `{ productId, productName, sku, category, unit, productStatus, initialized, quantity, minimumQuantity, status, updatedAt }` (produit archivé consultable ; `quantity` et `minimumQuantity` `null` si non initialisé).
+  - `GET /stock/movements?page&size` (toute l'entreprise) et `GET /stock/{productId}/movements` : du plus récent au plus ancien, `{ id, productId, productName, unit, type, quantity, quantityBefore, quantityAfter, reason, reference, unitCost?, author: { id, fullName }, createdAt }` — **`unitCost` absent sans `COST_READ`** (retiré par le serveur, y compris dans la réponse d'une opération) et pour un mouvement sans coût.
+- **Écriture** (`STOCK_ADJUST` : O,M ; en‑tête `Idempotency-Key` UUID **obligatoire** ; réponse `201` `{ movement, stock }`, ou `200` + `Idempotent-Replay: true` pour un rejeu identique) :
+  - `POST /stock/{productId}/initialize` `{ quantity, minimumQuantity?, note? }` — une seule fois par produit (`409 STOCK_ALREADY_INITIALIZED` ensuite) ; `quantity` > 0, mouvement `INITIAL`.
+  - `POST /stock/{productId}/entries` `{ quantity, reason, reference?, unitCost? }` — mouvement `ENTRY`. **`unitCost`** (finalisation MVP-3, V5) : coût unitaire d'acquisition facultatif, chaîne > 0 avec au plus les décimales de la devise (XOF 0, EUR/USD 2), jamais arrondi (`400`, champ `unitCost` = `INVALID_VALUE`) ; réservé à `COST_READ` (`403` sinon) ; ne modifie jamais le prix d'achat de référence du produit ; immuable une fois enregistré ; aucun coût moyen pondéré n'est calculé.
+  - `POST /stock/{productId}/exits` `{ quantity, reason, reference? }` — mouvement `EXIT` (`unitCost` refusé : `400`). Refus pour stock insuffisant **journalisé** (`STOCK_EXIT_REJECTED_INSUFFICIENT`, voir ci‑dessous).
+  - `POST /stock/{productId}/adjustments` `{ direction: IN|OUT, quantity, reason }` — `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` (`unitCost` refusé : `400`).
+  - `PUT /stock/{productId}/minimum-quantity` `{ minimumQuantity }` (≥ 0) → stock ; journalisé si la valeur change (pas d'idempotence nécessaire : opération idempotente par nature).
+- **Quantités** : chaînes décimales strictement positives (`initialize` : ≥ 0), décimales selon l'unité — `PIECE, UNIT, PACK, CARTON, LOT` : 0 ; `KILOGRAM, GRAM, LITRE, MILLILITRE, METRE` : 3 — au plus 15 chiffres entiers ; jamais arrondies (`400`, `INVALID_VALUE`). `reason` ≤ 255, `reference` ≤ 100, `note` ≤ 255.
+- **Statut** : `OUT_OF_STOCK` si quantité ≤ 0 ; `LOW_STOCK` si quantité ≤ seuil minimal ; sinon `IN_STOCK` ; `NOT_INITIALIZED` sans stock.
+- **Stock négatif** : seuls les mouvements qui **diminuent** le stock sont contrôlés ; si la nouvelle quantité serait < 0 et que `allowNegativeStock` est faux (relu dans la transaction, sous verrou) → `409 INSUFFICIENT_STOCK`. Une entrée n'est jamais refusée, même sur un stock négatif.
+- **Concurrence et idempotence** : verrou `SELECT … FOR UPDATE` sur la ligne de stock (sur le produit pour l'initialisation) ; la clé est conservée **sur le mouvement** (`UNIQUE (business_id, idempotency_key)`, sans expiration) avec l'empreinte SHA‑256 de la requête (produit, type, quantité, seuil initial, motif ou note, référence) : même clé + même contenu → mouvement existant renvoyé ; même clé + contenu différent → `409 IDEMPOTENCY_KEY_REUSED`. Clé absente ou non UUID → `400`.
+- **Erreurs** : `404` (produit inexistant ou d'une autre entreprise), `422 PRODUCT_ARCHIVED` (opération sur un produit archivé), `422 STOCK_NOT_INITIALIZED` (mouvement ou seuil avant initialisation), `409 INSUFFICIENT_STOCK`, `409 STOCK_ALREADY_INITIALIZED`, `409 IDEMPOTENCY_KEY_REUSED`, `403` sans permission.
+- **Historique immuable** : aucune route de modification ni de suppression ; une erreur se corrige par un ajustement motivé.
+- **Audit des sorties refusées** (finalisation MVP-3) : une sortie (`EXIT`) refusée pour stock insuffisant, par une utilisatrice authentifiée et autorisée, crée un événement `STOCK_EXIT_REJECTED_INSUFFICIENT` (résultat `DENIED`, entreprise, auteur, cible `PRODUCT` + identifiant, détail `REASON = INSUFFICIENT_STOCK`, date) — ni quantité, ni texte saisi, ni donnée de session ; aucun mouvement, quantité inchangée. Les refus antérieurs au contrôle (`401`, `403`, `404`, validation) ne sont pas journalisés ; un ajustement à la baisse refusé ne l'est pas non plus (hors périmètre demandé).
+- **Empreinte d'idempotence** : inclut `unitCost` lorsqu'il est renseigné (même clé + autre coût → `409 IDEMPOTENCY_KEY_REUSED`) ; inchangée pour un mouvement sans coût (rejeux des mouvements antérieurs reconnus).
 
 ### 2.4 COMMERCE
 | Méthode | Route | Rôles | Notes |

@@ -1,0 +1,40 @@
+# Profil dev : PostgreSQL local (docker compose, racine du dépôt) configuré par variables (voir .env.example).
+# Le fichier .env local (jamais versionné) est lu comme fichier de propriétés, depuis backend/ (../.env)
+# ou la racine (.env) ; une variable d'environnement définie dans le système reste prioritaire.
+# Compromis de développement : Flyway s'exécute dans l'application avec le rôle propriétaire
+# (en production, migrations séparées — lot B2).
+spring:
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:fooyre}
+    username: ${POSTGRES_APP_USER}
+    password: ${POSTGRES_APP_PASSWORD}
+  flyway:
+    user: ${POSTGRES_MIGRATION_USER}
+    password: ${POSTGRES_MIGRATION_PASSWORD}
+
+server:
+  # Écoute limitée à la boucle locale : le backend de développement n'est pas exposé au réseau local.
+  # Le frontend (Vite) y accède par son proxy (/api -> http://127.0.0.1:8080).
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
+fooyre:
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:5173}
+  # Compte de démonstration (identity.infrastructure.DemoAccountInitializer, profil dev uniquement).
+  # Mot de passe : variable FOOYRE_DEMO_OWNER_PASSWORD du .env local, sans valeur par défaut.
+  demo:
+    owner-email: ${FOOYRE_DEMO_OWNER_EMAIL:demo@fooyre.local}
+    owner-full-name: ${FOOYRE_DEMO_OWNER_FULL_NAME:Administrateur Démo}
+    owner-password: ${FOOYRE_DEMO_OWNER_PASSWORD:}
+    business-name: ${FOOYRE_DEMO_BUSINESS_NAME:FOOYRE Commerce Démo}
+  # Second compte propriétaire de démonstration, INDÉPENDANT du premier (entreprise distincte).
+  # Mot de passe : variable FOOYRE_DEMO2_OWNER_PASSWORD du .env local, sans valeur par défaut :
+  # sans elle, rien n'est créé. Un compte existant n'est jamais modifié.
+  demo2:
+    owner-email: ${FOOYRE_DEMO2_OWNER_EMAIL:aminata.demo@fooyre.local}
+    owner-full-name: ${FOOYRE_DEMO2_OWNER_FULL_NAME:Aminata Sarr}
+    owner-password: ${FOOYRE_DEMO2_OWNER_PASSWORD:}
+    business-name: ${FOOYRE_DEMO2_BUSINESS_NAME:Nafi Chic}

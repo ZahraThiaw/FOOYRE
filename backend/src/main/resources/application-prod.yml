@@ -1,0 +1,39 @@
+# Profil prod : toutes les valeurs sensibles viennent du gestionnaire de secrets (variables
+# d'environnement). Aucune valeur par défaut pour les secrets : leur absence empêche le démarrage,
+# et shared.config.ProductionConfigurationGuard refuse les valeurs d'exemple.
+#
+# Déploiement Render (docs/deploiement-render.md) :
+#  - port d'écoute fourni par la plateforme dans PORT (repli : SERVER_PORT, puis 8080) ;
+#  - deux rôles PostgreSQL distincts : propriétaire (migrations Flyway, utilisateur par défaut de la
+#    base Render) et rôle applicatif SANS droit de propriétaire (la RLS ne s'applique qu'à lui) ;
+#  - migrations Flyway exécutées au démarrage, avec le rôle propriétaire, de façon contrôlée :
+#    validation des scripts déjà appliqués, aucun « clean », aucune « baseline » implicite.
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_APP_USER}
+    password: ${POSTGRES_APP_PASSWORD}
+    hikari:
+      # Petites instances PostgreSQL : pool volontairement réduit (une seule instance applicative).
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+  flyway:
+    user: ${POSTGRES_MIGRATION_USER}
+    password: ${POSTGRES_MIGRATION_PASSWORD}
+    clean-disabled: true
+    validate-on-migrate: true
+    baseline-on-migrate: false
+    out-of-order: false
+
+server:
+  port: ${PORT:${SERVER_PORT:8080}}
+  # Arrêt propre lors des redéploiements (requêtes en cours terminées).
+  shutdown: graceful
+
+fooyre:
+  public-base-url: ${APP_PUBLIC_BASE_URL}
+
+logging:
+  structured:
+    format:
+      console: ecs

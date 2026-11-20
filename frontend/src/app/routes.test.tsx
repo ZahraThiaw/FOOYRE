@@ -22,8 +22,11 @@ function renderAt(path: string, mocksActive = false) {
 describe('routes', () => {
   it('affiche la page d’accueil provisoire et le profil /me', async () => {
     renderAt('/');
-    expect(screen.getByRole('heading', { level: 1, name: 'Bienvenue sur FOOYRE' })).toBeVisible();
-    expect(await screen.findByText(`Connecté·e en tant que ${meFixture.fullName}`)).toBeVisible();
+    // MVP‑1 : route protégée, le profil est chargé avant l’affichage de l’accueil.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: `Bienvenue, ${meFixture.fullName}` }),
+    ).toBeVisible();
+    expect(screen.getAllByText(meFixture.activeBusiness?.name ?? '').length).toBeGreaterThan(0);
   });
 
   it('affiche un message traduit et neutre si /me est indisponible (404)', async () => {
@@ -33,16 +36,17 @@ describe('routes', () => {
     expect(screen.getByRole('alert')).toHaveTextContent("L'élément demandé est introuvable.");
   });
 
-  it('session expirée (401) : message dédié', async () => {
+  it('session absente (401) : redirection vers la page de connexion', async () => {
     server.use(
       http.get('/api/v1/me', () =>
         HttpResponse.json({ status: 401, code: 'SESSION_REVOKED' }, { status: 401 }),
       ),
     );
     renderAt('/');
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Votre session a expiré ou vous n'êtes pas connecté·e.",
-    );
+    // MVP‑1 : la route protégée redirige vers /login au lieu d’afficher un message.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Connexion à votre espace' }),
+    ).toBeVisible();
   });
 
   it('erreur serveur (500) : message générique et référence, jamais le texte technique', async () => {
@@ -87,18 +91,23 @@ describe('routes', () => {
     expect(screen.getByText('Boutique B (fictive)')).toBeVisible();
   });
 
-  it('affiche la page 404 pour une route inconnue', () => {
+  it('affiche la page 404 pour une route inconnue', async () => {
     renderAt('/route-inexistante');
-    expect(screen.getByRole('heading', { level: 1, name: 'Page introuvable' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Page introuvable' }),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: "Retour à l'accueil" })).toHaveAttribute('href', '/');
   });
 
-  it('n’affiche le bandeau « données fictives » que lorsque les mocks sont actifs', () => {
+  it('n’affiche le bandeau « données fictives » que lorsque les mocks sont actifs', async () => {
+    // MVP‑1 : le bandeau fait partie de l’espace connecté (affiché après chargement du profil).
     const { unmount } = renderAt('/', false);
-    expect(screen.queryByRole('status')).toBeNull();
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByText(/Données de démonstration — fictives/)).toBeNull();
     unmount();
 
     renderAt('/', true);
-    expect(screen.getByRole('status')).toHaveTextContent('Données de démonstration — fictives');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByText(/Données de démonstration — fictives/)).toBeVisible();
   });
 });

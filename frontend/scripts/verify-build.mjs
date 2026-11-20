@@ -18,6 +18,10 @@ const FORBIDDEN_CONTENT = [
   { label: 'marqueur de données fictives', pattern: /FOOYRE_DONNEES_FICTIVES/ },
   { label: 'données fictives /me', pattern: /Utilisatrice de démonstration|example\.invalid/ },
   { label: 'clé Anthropic', pattern: /sk-ant-/ },
+  // URL locale avec port ou chemin (ex. API de développement http://127.0.0.1:8080/…) : interdite
+  // en production. Les bibliothèques (React Router, Axios) utilisent « http://localhost » nu comme
+  // base de repli pour analyser des URL : ce motif ne la vise pas.
+  { label: 'URL locale (localhost)', pattern: /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+|\/)/ },
 ];
 const TEXT_EXTENSIONS = /\.(html|js|mjs|css|json|map|txt|svg|webmanifest)$/i;
 

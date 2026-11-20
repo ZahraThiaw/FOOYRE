@@ -1,0 +1,182 @@
+{
+  "title": "Stock",
+  "intro": "Suivez vos quantités, enregistrez les entrées et sorties, et repérez les produits à réapprovisionner.",
+  "historyLink": "Historique des mouvements",
+  "unitShort": {
+    "PIECE": "pièce(s)",
+    "UNIT": "unité(s)",
+    "KILOGRAM": "kg",
+    "GRAM": "g",
+    "LITRE": "L",
+    "MILLILITRE": "mL",
+    "METRE": "m",
+    "PACK": "paquet(s)",
+    "CARTON": "carton(s)",
+    "LOT": "lot(s)"
+  },
+  "status": {
+    "IN_STOCK": "En stock",
+    "LOW_STOCK": "Stock faible",
+    "OUT_OF_STOCK": "Rupture",
+    "NOT_INITIALIZED": "Non suivi",
+    "TRACKED": "Suivis",
+    "ALERT": "Alertes (faible ou rupture)",
+    "ALL": "Tous"
+  },
+  "summary": {
+    "tracked": "Produits suivis",
+    "inStock": "En stock",
+    "lowStock": "Stocks faibles",
+    "outOfStock": "En rupture",
+    "notInitialized_one": "{{count}} produit actif n'est pas encore suivi.",
+    "notInitialized_other": "{{count}} produits actifs ne sont pas encore suivis.",
+    "estimatedValue": "Valeur estimée du stock",
+    "estimatedValueHint": "Estimation au prix d'achat de référence saisi dans le catalogue : ce n'est ni le coût réel des articles en stock, ni une valeur comptable.",
+    "withoutReferencePrice_one": "{{count}} produit en stock sans prix d'achat de référence n'est pas compté.",
+    "withoutReferencePrice_other": "{{count}} produits en stock sans prix d'achat de référence ne sont pas comptés."
+  },
+  "filters": {
+    "search": "Rechercher (nom ou référence)",
+    "category": "Catégorie",
+    "allCategories": "Toutes les catégories",
+    "status": "État du stock",
+    "sort": "Trier par",
+    "sorts": {
+      "name,asc": "Nom (A → Z)",
+      "quantity,asc": "Quantité croissante",
+      "quantity,desc": "Quantité décroissante",
+      "updatedAt,desc": "Mis à jour récemment"
+    }
+  },
+  "columns": {
+    "product": "Produit",
+    "quantity": "Quantité disponible",
+    "minimum": "Seuil minimal",
+    "status": "État",
+    "updatedAt": "Dernière mise à jour",
+    "actions": "Actions"
+  },
+  "empty": {
+    "noProducts": "Aucun produit actif dans votre catalogue. Ajoutez d'abord des produits pour suivre leur stock.",
+    "noResult": "Aucun produit ne correspond à votre recherche ou à vos filtres.",
+    "clear": "Effacer les filtres",
+    "goToProducts": "Aller aux produits",
+    "noMovement": "Aucun mouvement pour le moment."
+  },
+  "actions": {
+    "initialize": "Initialiser le stock",
+    "entry": "Entrée",
+    "exit": "Sortie",
+    "adjustment": "Ajuster",
+    "minimum": "Seuil",
+    "details": "Détails et historique",
+    "menu": "Actions pour {{name}}"
+  },
+  "operation": {
+    "titles": {
+      "initialize": "Initialiser le stock",
+      "entry": "Enregistrer une entrée",
+      "exit": "Enregistrer une sortie",
+      "adjustment": "Ajuster le stock",
+      "minimum": "Modifier le seuil minimal"
+    },
+    "product": "Produit",
+    "available": "Quantité disponible : {{quantity}}",
+    "quantity": "Quantité ({{unit}})",
+    "initialQuantity": "Quantité initiale ({{unit}})",
+    "minimum": "Seuil minimal ({{unit}})",
+    "minimumHint": "Une alerte « Stock faible » apparaît lorsque la quantité devient égale ou inférieure à ce seuil. 0 : alerte uniquement à la rupture.",
+    "direction": "Type d'ajustement",
+    "directionIn": "Correction à la hausse",
+    "directionOut": "Correction à la baisse",
+    "reason": "Motif",
+    "reasonPlaceholder": {
+      "entry": "Ex. : réception de marchandises",
+      "exit": "Ex. : perte, casse, usage interne",
+      "adjustment": "Ex. : erreur de comptage, inventaire"
+    },
+    "note": "Note",
+    "reference": "Référence",
+    "referencePlaceholder": "Ex. : bon de livraison, n° de commande",
+    "preview": "Actuel : {{before}} · Variation : {{variation}} · Nouvelle quantité : {{after}}",
+    "insufficient": "Stock insuffisant : la quantité deviendrait négative ({{after}}). Le stock négatif n'est pas autorisé pour votre entreprise.",
+    "negativeAllowed": "Attention : la quantité deviendra négative ({{after}}). Votre entreprise autorise le stock négatif.",
+    "review": "Vérifier",
+    "confirmTitle": "Confirmer l'opération",
+    "confirm": "Confirmer",
+    "back": "Modifier",
+    "cancel": "Annuler",
+    "saving": "Enregistrement…",
+    "done": {
+      "initialize": "Stock initialisé : {{quantity}}.",
+      "entry": "Entrée enregistrée. Nouvelle quantité : {{quantity}}.",
+      "exit": "Sortie enregistrée. Nouvelle quantité : {{quantity}}.",
+      "adjustment": "Ajustement enregistré. Nouvelle quantité : {{quantity}}.",
+      "minimum": "Seuil minimal enregistré."
+    },
+    "failed": "L'opération n'a pas été enregistrée.",
+    "errors": {
+      "required": "Ce champ est obligatoire.",
+      "format": "Saisissez une quantité valide (ex. 12 ou 2,5).",
+      "negative": "La quantité ne peut pas être négative.",
+      "zero": "La quantité doit être supérieure à zéro.",
+      "tooManyDecimals": "Trop de décimales pour cette unité.",
+      "tooLarge": "La quantité est trop élevée.",
+      "reasonRequired": "Indiquez le motif de l'opération.",
+      "tooLong": "Le texte est trop long ({{max}} caractères au maximum).",
+      "costDecimals_one": "En {{currency}}, {{count}} décimale au maximum.",
+      "costDecimals_other": "En {{currency}}, {{count}} décimales au maximum.",
+      "costZero": "Le coût unitaire doit être supérieur à zéro (laissez le champ vide s'il est inconnu)."
+    },
+    "quantityHintInteger": "Nombre entier uniquement.",
+    "quantityHintDecimals": "Jusqu'à {{decimals}} décimales.",
+    "unitCost": "Coût unitaire d'achat ({{currency}})",
+    "unitCostHint_one": "Facultatif : coût réel d'acquisition d'une unité, {{count}} décimale au maximum. Il ne modifie pas le prix d'achat de référence du produit.",
+    "unitCostHint_other": "Facultatif : coût réel d'acquisition d'une unité, {{count}} décimales au maximum. Il ne modifie pas le prix d'achat de référence du produit.",
+    "stepForm": "Étape 1 sur 2 · Saisie",
+    "stepConfirm": "Étape 2 sur 2 · Vérification",
+    "close": "Fermer"
+  },
+  "movementTypes": {
+    "INITIAL": "Stock initial",
+    "ENTRY": "Entrée",
+    "EXIT": "Sortie",
+    "ADJUSTMENT_IN": "Ajustement (+)",
+    "ADJUSTMENT_OUT": "Ajustement (−)"
+  },
+  "history": {
+    "title": "Historique des mouvements",
+    "intro": "Chaque opération est conservée telle qu'elle a été enregistrée : elle ne peut être ni modifiée ni supprimée. Une erreur se corrige par un ajustement.",
+    "date": "Date",
+    "product": "Produit",
+    "type": "Mouvement",
+    "quantity": "Quantité",
+    "before": "Avant",
+    "after": "Après",
+    "reason": "Motif",
+    "author": "Par",
+    "unknownAuthor": "Utilisateur inconnu",
+    "unitCost": "Coût unitaire"
+  },
+  "detail": {
+    "notFound": "Ce produit est introuvable.",
+    "archived": "Ce produit est archivé : son historique reste consultable, mais aucune nouvelle opération n'est possible.",
+    "notInitialized": "Le stock de ce produit n'est pas encore suivi. Initialisez‑le pour enregistrer des mouvements."
+  },
+  "settings": {
+    "title": "Paramètres du stock",
+    "negativeStock": "Autoriser le stock négatif",
+    "negativeStockHelp": "Désactivé : une sortie supérieure à la quantité disponible est refusée. Activé : elle est enregistrée et la quantité devient négative.",
+    "ownerOnly": "Ce paramètre ne peut être modifié que par le rôle Propriétaire.",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "enableTitle": "Autoriser le stock négatif ?",
+    "enableDescription": "Les sorties pourront dépasser la quantité disponible. Les quantités négatives resteront tracées dans l'historique.",
+    "disableTitle": "Interdire le stock négatif ?",
+    "disableDescription": "Les sorties supérieures à la quantité disponible seront refusées.",
+    "saved": "Paramètre enregistré.",
+    "failed": "Le paramètre n'a pas pu être enregistré.",
+    "movedToSettings": "Le réglage du stock négatif se trouve dans les paramètres de l'entreprise.",
+    "openSettings": "Ouvrir les paramètres"
+  }
+}

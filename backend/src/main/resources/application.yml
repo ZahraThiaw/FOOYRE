@@ -1,0 +1,116 @@
+# FOOYRE — configuration commune (aucun secret : uniquement des références ${VAR}).
+# Profils : dev, test, prod (docs/architecture.md §11). Les identifiants de base de données
+# sont définis dans application-dev.yml / application-prod.yml ; les tests utilisent
+# Testcontainers (@ServiceConnection).
+spring:
+  application:
+    name: fooyre-backend
+  autoconfigure:
+    # Aucun utilisateur en mémoire ni mot de passe généré : l'authentification est celle de FOOYRE
+    # (identity.application.AuthenticationService, ADR-04).
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  datasource:
+    hikari:
+      # Base indisponible : échec en 5 s (au lieu de 30 s par défaut) pour les requêtes et la readiness.
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  # Messages : i18n/messages_fr.properties, déclarés dans shared.config.MessagesConfiguration.
+  mvc:
+    # Erreurs produites par shared.error.GlobalExceptionHandler (contrat docs/api-specification.md §1.3).
+    problemdetails:
+      enabled: false
+  web:
+    locale: fr
+    locale-resolver: fixed
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      discovery:
+        enabled: false
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: read-only
+      probes:
+        enabled: true
+      show-details: never
+      show-components: never
+      group:
+        # liveness : le processus est vivant (indépendant de PostgreSQL : pas de redémarrage en cas de panne de la base).
+        liveness:
+          include: livenessState
+        # readiness : l'application peut servir du trafic utile → PostgreSQL joignable.
+        readiness:
+          include: readinessState,db
+
+fooyre:
+  default-timezone: ${APP_DEFAULT_TIMEZONE:Africa/Dakar}
+  default-currency: ${APP_DEFAULT_CURRENCY:XOF}
+  # Authentification (ADR-04, shared.config.AuthProperties). JWT_SECRET n'a AUCUNE valeur par défaut.
+  auth:
+    jwt-secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL_MINUTES:15}m
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}d
+    refresh-reuse-grace: ${AUTH_REFRESH_REUSE_GRACE_SECONDS:10}s
+    # Sans valeur explicite : true (Secure). Le développement local en HTTP pose AUTH_COOKIE_SECURE=false.
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    # Limitation des tentatives de connexion (identity.application.LoginThrottleProperties, MVP-1.1).
+    # Compteurs dans PostgreSQL (table login_throttle) ; blocage toujours temporaire.
+    login-throttle:
+      max-failures-per-account-and-ip: ${LOGIN_THROTTLE_MAX_FAILURES_PER_ACCOUNT_AND_IP:5}
+      max-failures-per-account: ${LOGIN_THROTTLE_MAX_FAILURES_PER_ACCOUNT:20}
+      max-failures-per-ip: ${LOGIN_THROTTLE_MAX_FAILURES_PER_IP:50}
+      window: ${LOGIN_THROTTLE_WINDOW_MINUTES:15}m
+      block-duration: ${LOGIN_THROTTLE_BLOCK_MINUTES:15}m
+      retention: ${LOGIN_THROTTLE_RETENTION_HOURS:24}h
+      cleanup-interval: ${LOGIN_THROTTLE_CLEANUP_INTERVAL_MINUTES:60}m
+  # Assistante IA (CLAUDE.md §9, D15) : DÉSACTIVÉE par défaut. En profil prod, elle reste désactivée
+  # tant que AI_PRODUCTION_APPROVED n'est pas positionné (validations juridiques non obtenues).
+  # Une valeur vide dans .env vaut « non défini ».
+  ai:
+    # Fournisseur : « anthropic » (ou vide) = appels réels ; toute autre valeur (ex. « fake ») les désactive.
+    provider: ${AI_PROVIDER:}
+    enabled: ${AI_ENABLED:false}
+    production-approved: ${AI_PRODUCTION_APPROVED:false}
+    terms-version: ${AI_TERMS_VERSION:2026-11-19}
+    daily-requests-per-business: ${AI_DAILY_REQUESTS_PER_BUSINESS:50}
+    monthly-budget-per-business-usd: ${AI_MONTHLY_BUDGET_PER_BUSINESS_USD:5}
+    # Tarifs d'ESTIMATION (USD par million de jetons) : Claude Opus 5.5, référence relevée le
+    # 2026-11-19 (documentation de référence Anthropic, cache du 2026-11-03) — à revérifier.
+    price-input-per-mtok-usd: ${AI_PRICE_INPUT_PER_MTOK_USD:4.00}
+    price-output-per-mtok-usd: ${AI_PRICE_OUTPUT_PER_MTOK_USD:20.00}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${ANTHROPIC_MODEL:claude-opus-5-5}
+      max-tokens: ${ANTHROPIC_MAX_TOKENS:16000}
+      timeout-seconds: ${ANTHROPIC_TIMEOUT_SECONDS:120}
+      max-retries: ${ANTHROPIC_MAX_RETRIES:2}
+      # Vide en usage normal (API Anthropic) ; renseigné UNIQUEMENT par les tests hors ligne.
+      base-url: ${ANTHROPIC_BASE_URL:}
+
+logging:
+  pattern:
+    correlation: "[%X{traceId:-}] "

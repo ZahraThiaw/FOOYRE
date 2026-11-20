@@ -1,3 +1,4 @@
+import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { describeApiError } from '@/shared/api/errorMessages';
@@ -17,7 +18,10 @@ export function ApiErrorMessage({ error }: ApiErrorMessageProps) {
 
   return (
     <div role="alert" className="space-y-1">
-      <p>{t(messageKey)}</p>
+      <p className="flex items-start font-medium text-danger">
+        <AlertCircle aria-hidden="true" className="mr-1.5 mt-0.5 h-4 w-4 flex-none" />
+        <span>{t(messageKey)}</span>
+      </p>
       {retryAfterSeconds !== null && (
         <p className="text-sm text-ink-muted">
           {t('apiErrors:retryAfter', { seconds: retryAfterSeconds })}

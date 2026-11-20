@@ -17,9 +17,10 @@
   "codes": {
     "VALIDATION_ERROR": "Certaines informations sont manquantes ou incorrectes.",
     "SESSION_REVOKED": "Votre session n'est plus valide. Veuillez vous reconnecter.",
+    "INVALID_CREDENTIALS": "Adresse e-mail ou mot de passe incorrect.",
     "FORBIDDEN": "Vous n'avez pas les droits nécessaires pour cette action.",
     "CSRF_CHECK_FAILED": "La demande a été refusée par mesure de sécurité. Rechargez la page puis réessayez.",
-    "AI_NOT_ENABLED": "L'assistant n'est pas activé pour votre entreprise.",
+    "AI_NOT_ENABLED": "L'assistante IA n'est pas activée pour votre entreprise.",
     "SUPPORT_SCOPE_DENIED": "Cette action n'est pas autorisée dans le cadre de l'accès support accordé.",
     "NOT_FOUND": "L'élément demandé est introuvable.",
     "INSUFFICIENT_STOCK": "Stock insuffisant pour au moins un produit.",
@@ -31,18 +32,24 @@
     "BUSINESS_CONTEXT_MISMATCH": "Cette opération a été préparée pour une autre entreprise.",
     "PAYMENT_EXCEEDS_BALANCE": "Le paiement dépasse le reste à payer.",
     "INVALID_STATE_TRANSITION": "Cette action n'est pas possible dans l'état actuel.",
-    "DISCOUNT_LIMIT_EXCEEDED": "La remise dépasse la limite autorisée.",
+    "DISCOUNT_LIMIT_EXCEEDED": "La remise dépasse la limite autorisée pour votre rôle.",
     "CREDIT_INSUFFICIENT": "Le solde de l'avoir est insuffisant.",
     "CUSTOMER_REQUIRED_FOR_CREDIT": "Un avoir nécessite un client identifié sur la vente.",
     "CANCELLATION_SETTLEMENT_MISMATCH": "Le remboursement et l'avoir doivent correspondre au montant payé.",
     "RATE_LIMITED": "Trop de demandes en peu de temps. Patientez un instant avant de réessayer.",
-    "AI_QUOTA_EXCEEDED": "Le quota d'analyses de l'assistant est atteint pour cette période.",
+    "AI_QUOTA_EXCEEDED": "Le nombre de questions autorisées pour aujourd'hui est atteint.",
     "AI_INSUFFICIENT_DATA": "Il n'y a pas encore assez de données pour réaliser cette analyse.",
-    "AI_INVALID_OUTPUT": "L'analyse n'a pas pu être validée. Réessayez plus tard.",
-    "AI_DISABLED": "L'assistant est momentanément désactivé.",
-    "AI_UNAVAILABLE": "L'assistant est momentanément indisponible. Réessayez plus tard.",
+    "AI_INVALID_OUTPUT": "La réponse de l'assistante n'a pas pu être vérifiée : elle n'est pas affichée. Reformulez votre question.",
+    "AI_DISABLED": "L'assistante IA est désactivée sur ce serveur.",
+    "AI_UNAVAILABLE": "Le service d'IA est momentanément indisponible. Réessayez plus tard.",
     "INTERNAL_ERROR": "Une erreur est survenue sur le serveur. Réessayez dans quelques instants.",
-    "MOCK_NOT_IMPLEMENTED": "Mode démonstration : cette fonction n'est pas encore simulée."
+    "MOCK_NOT_IMPLEMENTED": "Mode démonstration : cette fonction n'est pas encore simulée.",
+    "STOCK_ALREADY_INITIALIZED": "Le stock de ce produit est déjà initialisé. Utilisez un ajustement pour le corriger.",
+    "STOCK_NOT_INITIALIZED": "Le stock de ce produit n'est pas encore initialisé.",
+    "PRODUCT_ARCHIVED": "Ce produit est archivé : aucune nouvelle opération n'est possible.",
+    "ALREADY_ARCHIVED": "Cet élément est déjà archivé.",
+    "AI_NOT_CONFIGURED": "La connexion au service d'IA n'est pas configurée.",
+    "AI_CREDENTIALS_REJECTED": "Le service d'IA a refusé la clé configurée sur le serveur. L'administrateur doit vérifier la clé Anthropic."
   },
   "fields": {
     "REQUIRED": "Ce champ est obligatoire.",
@@ -50,6 +57,8 @@
     "TOO_LONG": "La valeur est trop longue.",
     "TOO_SHORT": "La valeur est trop courte.",
     "INVALID_VALUE": "La valeur n'est pas valide.",
-    "ALREADY_EXISTS": "Cette valeur est déjà utilisée."
+    "ALREADY_EXISTS": "Cette valeur est déjà utilisée.",
+    "ARCHIVED": "Cet élément est archivé et ne peut plus être choisi.",
+    "LOCKED": "Cette valeur ne peut plus être modifiée (stock déjà suivi)."
   }
 }

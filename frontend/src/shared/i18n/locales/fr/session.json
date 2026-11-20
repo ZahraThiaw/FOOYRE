@@ -3,10 +3,16 @@
   "expired": "Votre session a expiré ou vous n'êtes pas connecté·e. Veuillez vous connecter.",
   "forbidden": "Votre compte n'a pas accès à cette application.",
   "error": "Votre profil n'a pas pu être chargé.",
+  "retry": "Réessayer",
   "noBusiness": {
     "title": "Aucune entreprise sélectionnée",
     "chooseBusiness": "Sélectionnez l'entreprise avec laquelle vous souhaitez travailler :",
     "noMembership": "Votre compte n'est rattaché à aucune entreprise active.",
     "platformAdmin": "Compte d'administration de la plateforme : aucune entreprise active."
+  },
+  "roles": {
+    "BUSINESS_OWNER": "Propriétaire",
+    "BUSINESS_MANAGER": "Gestionnaire",
+    "EMPLOYEE": "Employé·e"
   }
 }

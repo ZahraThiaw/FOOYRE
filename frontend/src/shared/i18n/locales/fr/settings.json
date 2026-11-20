@@ -1,0 +1,46 @@
+{
+  "title": "Paramètres",
+  "intro": "Réglages de votre entreprise. Les paramètres financiers ne sont modifiables que par la propriétaire.",
+  "ownerOnly": "Modifiable uniquement par le rôle Propriétaire.",
+  "save": "Enregistrer",
+  "saved": "Paramètres enregistrés.",
+  "failed": "Les paramètres n'ont pas été enregistrés.",
+  "vat": {
+    "title": "TVA",
+    "enabled": "Appliquer la TVA aux ventes",
+    "rate": "Taux (%)",
+    "mode": "Les prix de vente saisis sont",
+    "HT": "Hors taxes (HT)",
+    "TTC": "Toutes taxes comprises (TTC)",
+    "provisional": "Méthode de calcul provisoire (par ligne, arrondi à la devise), en attente de validation par un·e comptable.",
+    "invalidRate": "Taux invalide (entre 0 et 100, 2 décimales au maximum)."
+  },
+  "discount": {
+    "title": "Remises des employés",
+    "label": "Remise maximale autorisée aux employés (% du montant brut de la vente)",
+    "hint": "0 % : les employés ne peuvent accorder aucune remise. La propriétaire et le gestionnaire n'ont pas de limite. Chaque remise et chaque dépassement refusé sont journalisés.",
+    "invalid": "Valeur invalide (entre 0 et 100)."
+  },
+  "ai": {
+    "title": "Assistante IA",
+    "statusOn": "Activée",
+    "statusOff": "Désactivée",
+    "explain": "Lorsque l'assistante est activée, chaque question est envoyée, avec un résumé chiffré de votre activité calculé par FOOYRE, au fournisseur d'IA Anthropic (modèle Claude), hors du Sénégal. Ce résumé contient : vos produits (noms, prix de vente, quantités en stock), vos indicateurs de ventes et, pour les rôles autorisés, les coûts d'achat moyens. Il ne contient jamais le nom, le téléphone ni l'adresse de vos clients (remplacés par des références). Le texte de votre question est transmis tel que vous l'écrivez ou le dictez.",
+    "consent": "J'ai lu ces informations et j'active l'assistante pour mon entreprise.",
+    "enable": "Activer l'assistante",
+    "disable": "Désactiver l'assistante (révocation immédiate)",
+    "since": "Activée le {{date}} (conditions version {{version}}).",
+    "enabled": "Assistante activée.",
+    "disabled": "Assistante désactivée.",
+    "ownerOnly": "Seule la propriétaire peut activer ou désactiver l'assistante."
+  },
+  "sections": {
+    "label": "Sections des paramètres",
+    "business": "Entreprise"
+  },
+  "business": {
+    "name": "Nom",
+    "currency": "Devise",
+    "yourRole": "Votre rôle"
+  }
+}

@@ -10,18 +10,40 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import apiErrorsFr from './locales/fr/apiErrors.json';
+import authFr from './locales/fr/auth.json';
+import catalogFr from './locales/fr/catalog.json';
 import commonFr from './locales/fr/common.json';
+import assistantFr from './locales/fr/assistant.json';
+import customersFr from './locales/fr/customers.json';
+import salesFr from './locales/fr/sales.json';
+import settingsFr from './locales/fr/settings.json';
 import sessionFr from './locales/fr/session.json';
+import stockFr from './locales/fr/stock.json';
 
 export const SUPPORTED_LOCALES = ['fr'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: SupportedLocale = 'fr';
 export const DEFAULT_NAMESPACE = 'common';
-/** Espaces de noms : `common` (interface), `apiErrors` (erreurs API, R7), `session` (R8). */
-export const NAMESPACES = ['common', 'apiErrors', 'session'] as const;
+/**
+ * Espaces de noms : `common` (interface), `apiErrors` (erreurs API, R7), `session` (R8),
+ * `auth` (connexion et déconnexion, MVP‑1), `catalog` (produits et catégories, MVP‑2),
+ * `stock` (stock et mouvements, MVP‑3), `customers` (clients, MVP‑4A).
+ */
+export const NAMESPACES = ['common', 'apiErrors', 'session', 'auth', 'catalog', 'stock', 'customers', 'sales', 'assistant', 'settings'] as const;
 
 export const resources = {
-  fr: { common: commonFr, apiErrors: apiErrorsFr, session: sessionFr },
+  fr: {
+    common: commonFr,
+    apiErrors: apiErrorsFr,
+    session: sessionFr,
+    auth: authFr,
+    catalog: catalogFr,
+    stock: stockFr,
+    customers: customersFr,
+    sales: salesFr,
+    assistant: assistantFr,
+    settings: settingsFr,
+  },
 } as const;
 
 void i18n.use(initReactI18next).init({

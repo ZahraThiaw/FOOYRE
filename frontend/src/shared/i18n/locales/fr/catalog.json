@@ -1,0 +1,148 @@
+{
+  "units": {
+    "PIECE": "Pièce",
+    "UNIT": "Unité",
+    "KILOGRAM": "Kilogramme (kg)",
+    "GRAM": "Gramme (g)",
+    "LITRE": "Litre (L)",
+    "MILLILITRE": "Millilitre (mL)",
+    "METRE": "Mètre (m)",
+    "PACK": "Paquet",
+    "CARTON": "Carton",
+    "LOT": "Lot"
+  },
+  "status": {
+    "ACTIVE": "Actif",
+    "ARCHIVED": "Archivé",
+    "ALL": "Tous"
+  },
+  "categoryStatus": {
+    "ACTIVE": "Active",
+    "ARCHIVED": "Archivée",
+    "ALL": "Toutes"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "edit": "Modifier",
+    "archive": "Archiver",
+    "back": "Retour",
+    "optional": "facultatif",
+    "notProvided": "Non renseigné",
+    "retry": "Réessayer",
+    "loadError": "Les données n'ont pas pu être chargées."
+  },
+  "products": {
+    "title": "Produits",
+    "intro": "Organisez votre catalogue : références, prix et catégories.",
+    "add": "Ajouter un produit",
+    "search": "Rechercher (nom, référence, code-barres)",
+    "categoryFilter": "Catégorie",
+    "allCategories": "Toutes les catégories",
+    "statusFilter": "Statut",
+    "sortLabel": "Trier par",
+    "sort": {
+      "name,asc": "Nom (A → Z)",
+      "name,desc": "Nom (Z → A)",
+      "createdAt,desc": "Plus récents",
+      "createdAt,asc": "Plus anciens",
+      "salePrice,asc": "Prix de vente croissant",
+      "salePrice,desc": "Prix de vente décroissant"
+    },
+    "columns": {
+      "name": "Produit",
+      "category": "Catégorie",
+      "salePrice": "Prix de vente",
+      "purchasePrice": "Prix d'achat",
+      "unit": "Unité",
+      "status": "Statut"
+    },
+    "empty": {
+      "title": "Aucun produit pour le moment",
+      "description": "Ajoutez votre premier produit pour commencer à organiser votre catalogue.",
+      "filtered": "Aucun produit ne correspond à votre recherche ou à vos filtres.",
+      "clearFilters": "Effacer les filtres"
+    },
+    "noCategory": "Sans catégorie",
+    "archivedCategory": "{{name}} (archivée)",
+    "archiveAction": "Archiver « {{name}} »",
+    "purchasePriceValue": "Prix d'achat : {{amount}}"
+  },
+  "productDetail": {
+    "sku": "Référence interne (SKU)",
+    "barcode": "Code-barres",
+    "description": "Description",
+    "category": "Catégorie",
+    "unit": "Unité de mesure",
+    "salePrice": "Prix de vente",
+    "purchasePrice": "Prix d'achat de référence",
+    "purchasePriceHint": "Prix indicatif saisi par vous ; ce n'est pas un coût de revient calculé.",
+    "status": "Statut",
+    "createdAt": "Créé le",
+    "updatedAt": "Modifié le",
+    "archivedNotice": "Ce produit est archivé : il n'apparaît plus dans le catalogue actif et n'est plus modifiable. Son historique est conservé.",
+    "notFound": "Ce produit est introuvable.",
+    "seeStock": "Voir le stock et les mouvements"
+  },
+  "productForm": {
+    "createTitle": "Nouveau produit",
+    "editTitle": "Modifier le produit",
+    "name": "Nom du produit",
+    "description": "Description",
+    "sku": "Référence interne (SKU)",
+    "barcode": "Code-barres",
+    "category": "Catégorie",
+    "noCategory": "Aucune catégorie",
+    "unit": "Unité de mesure",
+    "purchasePrice": "Prix d'achat de référence",
+    "salePrice": "Prix de vente",
+    "priceHint": "En {{currency}}, {{decimals}} décimale(s) au maximum.",
+    "costHint": "En {{currency}}, {{decimals}} décimale(s) au maximum. Visible uniquement par les personnes autorisées.",
+    "currentArchivedCategory": "{{name}} (archivée, conservée)",
+    "errors": {
+      "required": "Ce champ est obligatoire.",
+      "format": "Saisissez un montant valide (ex. 1500).",
+      "negative": "Le montant ne peut pas être négatif.",
+      "tooManyDecimals": "Trop de décimales pour ce montant.",
+      "tooLarge": "Le montant est trop élevé.",
+      "tooLong": "Le texte est trop long ({{max}} caractères au maximum).",
+      "codeFormat": "Lettres, chiffres et tirets uniquement."
+    },
+    "created": "Le produit « {{name}} » a été ajouté.",
+    "updated": "Le produit « {{name}} » a été modifié.",
+    "saveFailed": "Le produit n'a pas pu être enregistré."
+  },
+  "productArchive": {
+    "title": "Archiver ce produit ?",
+    "description": "« {{name}} » ne sera plus proposé dans le catalogue actif. Son historique est conservé et il n'est pas supprimé.",
+    "done": "Le produit « {{name}} » a été archivé.",
+    "failed": "Le produit n'a pas pu être archivé."
+  },
+  "categories": {
+    "title": "Catégories",
+    "intro": "Regroupez vos produits selon l'organisation de votre activité.",
+    "add": "Ajouter une catégorie",
+    "statusFilter": "Statut",
+    "name": "Nom de la catégorie",
+    "description": "Description",
+    "productCount_one": "{{count}} produit actif",
+    "productCount_other": "{{count}} produits actifs",
+    "createTitle": "Nouvelle catégorie",
+    "editTitle": "Modifier la catégorie",
+    "empty": {
+      "title": "Aucune catégorie pour le moment",
+      "description": "Créez des catégories pour retrouver plus facilement vos produits.",
+      "archived": "Aucune catégorie archivée."
+    },
+    "archiveTitle": "Archiver cette catégorie ?",
+    "archiveDescription": "« {{name}} » ne pourra plus être choisie pour un produit. Les produits qui y sont rattachés conservent cette catégorie.",
+    "archivedNotice": "Catégorie archivée : elle n'est plus proposée et n'est plus modifiable.",
+    "created": "La catégorie « {{name}} » a été créée.",
+    "updated": "La catégorie « {{name}} » a été modifiée.",
+    "archived": "La catégorie « {{name}} » a été archivée.",
+    "saveFailed": "La catégorie n'a pas pu être enregistrée.",
+    "archiveFailed": "La catégorie n'a pas pu être archivée."
+  }
+}

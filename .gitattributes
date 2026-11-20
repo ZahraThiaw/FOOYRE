@@ -1,1 +1,4 @@
 * text=auto eol=lf
+# Scripts Windows (cmd.exe) : CRLF obligatoire (étiquettes et goto peu fiables en LF).
+*.cmd text eol=crlf
+*.bat text eol=crlf

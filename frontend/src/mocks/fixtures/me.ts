@@ -7,6 +7,9 @@ import type { MeResponse } from '@/features/session/types';
 
 export const FIXTURE_MARKER = 'FOOYRE_DONNEES_FICTIVES';
 
+/** Jeton d'accès FICTIF renvoyé par la connexion simulée (aucune valeur réelle). */
+export const FIXTURE_ACCESS_TOKEN = `${FIXTURE_MARKER}_jeton_acces`;
+
 export const meFixture: MeResponse & { readonly fixture: typeof FIXTURE_MARKER } = {
   fixture: FIXTURE_MARKER,
   id: '00000000-0000-4000-8000-000000000001',

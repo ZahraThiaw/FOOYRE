@@ -137,7 +137,7 @@ Les comportements critiques (RLS, `NUMERIC`, verrous, contraintes) sont propres 
 ### ADR‑12 — Versions des dépendances
 Java 21 (imposé). Frontend : versions vérifiées et figées en phase 1 (voir « Frontend » ci‑dessous et `frontend/package-lock.json`). Les versions backend seront figées dans `pom.xml`.
 
-**Spring Boot : cible 4.1.2 — vérifiée partiellement le 2026-11-18, confirmation finale au démarrage de la phase 1.**
+**Spring Boot : 4.1.2 — vérifiée partiellement le 2026-11-18, CONFIRMÉE le 2026-11-19 (lot B1, voir « Backend — versions retenues » ci‑dessous).**
 
 | Point | Résultat | Source consultée |
 |---|---|---|
@@ -156,6 +156,47 @@ Points de compatibilité à traiter en phase 1 (issus du guide de migration Spri
 - Compatibilité à vérifier avec Spring Boot 4.1 / JUnit 6 : ArchUnit, springdoc‑openapi, Bucket4j, bibliothèque PDF, Testcontainers 2.
 
 **Alternative si une incompatibilité bloquante apparaît** : dernier correctif de la branche **3.5.x** (3.5.16 relevée dans les métadonnées Maven Central), compatible Java 21 et à l'écosystème plus mûr ; cette option n'a pas été vérifiée en détail et ne serait retenue qu'après validation.
+
+**Backend — versions retenues (lot B1, vérifiées le 2026‑11‑19)**. Les versions gérées ont été lues dans le BOM officiel `spring-boot-dependencies-4.1.2.pom` (Maven Central), puis contrôlées dans l'arbre de dépendances résolu (`./mvnw dependency:tree`) ; aucune version gérée n'est remplacée.
+
+| Composant | Version | Source / justification |
+|---|---|---|
+| Java | 21 (Temurin 21.0.13 sur le poste de développement) | Imposé ; Boot 4.1.2 « requires at least Java 17 and is compatible with versions up to and including Java 27 » (`docs.spring.io/spring-boot/system-requirements.html`) ; contrôlé par `maven-enforcer-plugin` (`[21,22)`) |
+| Spring Boot | 4.1.2 | Dernier correctif 4.1.x (`maven-metadata.xml` du 2026‑11‑05 : aucune 4.1.3) ; 4.2.0 seulement en RC2 ; publiée le 22 octobre |
+| Spring Framework / Security / Data JPA | 7.0.10 / 7.1.2 / 4.1.2 (BOM Spring Data 2026.0.2) | BOM |
+| Hibernate ORM / Validator | 7.4.13.Final / 9.1.5.Final | BOM |
+| Flyway (`flyway-core`, `flyway-database-postgresql`) | 12.4.0 | BOM. Une Flyway 13.12.2 existe sur Maven Central : **non retenue** (version gérée par Boot conservée) |
+| Pilote PostgreSQL | 42.7.14 | BOM |
+| Jackson | 3.1.7 (`tools.jackson`) ; annotations 2.21 | BOM |
+| JUnit Jupiter / Mockito / AssertJ | 6.0.3 / 5.23.0 / 3.27.7 | BOM |
+| JWT (MVP-1) : `spring-boot-starter-security-oauth2-resource-server` → `spring-security-oauth2-jose` / `-resource-server` 7.1.2, `nimbus-jose-jwt` 10.9.1 | 4.1.2 (BOM) | Ajout MVP-1 (2026-11-19) : versions lues dans `spring-boot-dependencies-4.1.2.pom` et contrôlées par `./mvnw dependency:tree`. Utilité : signature/validation HS256 du jeton d'accès (ADR-04) par Spring Security, sans bibliothèque JWT tierce ; licence Apache 2.0 ; maintenu par l'équipe Spring. `spring-boot-starter-oauth2-resource-server` (ancien nom, encore présent dans le BOM) n'est pas utilisé |
+| Testcontainers (`testcontainers-postgresql`, `testcontainers-junit-jupiter`) | 2.0.5 | BOM (`testcontainers-bom` importé) ; classe `org.testcontainers.postgresql.PostgreSQLContainer` |
+| Tomcat embarqué | 11.0.27 | BOM |
+| ArchUnit | **`archunit-junit6` 1.5.1** | Seule version fixée à la main (absente du BOM) ; module `-junit6` requis par JUnit 6 (notes de version ArchUnit 1.5.0) |
+| PostgreSQL (tests) | 18.7 — image `postgres:18.7-alpine` | `postgresql.org/support/versioning` : support jusqu'au 2030‑11‑14 ; 18.7 publiée le 2026‑11‑12 |
+| Maven | 3.10.1 via Maven Wrapper 3.3.4 (type `only-script`, aucun binaire versionné) | `maven.apache.org` (« latest release ») ; archive vérifiée le 2026‑11‑19 : SHA‑512 conforme au fichier officiel et signature GPG valide (clé du fichier `KEYS` d'Apache Maven) ; SHA‑256 inscrit dans `distributionSha256Sum`. Version récente (signée le 2026‑11‑11) |
+
+**MVP-1 — authentification (mise en œuvre de l'ADR-04, 2026-11-19)** :
+- Connexion `POST /api/v1/auth/login` (bcrypt coût 12 — Argon2 exigerait Bouncy Castle), jeton d'accès JWT HS256 15 min (`shared.security.AccessTokenService`, claims `iss`, `sub`, `sid`, `bid`, `mid`, `role`, `ver`, `jti`), refresh token opaque 256 bits haché SHA-256 (`refresh_token`), rotation à chaque `/auth/refresh` sous verrou, fenêtre de tolérance, détection de réutilisation (révocation de la famille), `/auth/logout` révoque la session.
+- Revérification en base à CHAQUE requête (port `shared.security.AccessTokenVerifier`, implémenté par `identity`) : compte actif, `ver`, session non révoquée (déconnexion effective immédiatement, ajout par rapport au texte de l'ADR), appartenance active avec le même rôle, entreprise active. Permissions recalculées par `shared.security.RolePermissions` (matrice §5.3 figée par `RolePermissionsTest`).
+- Contrôle `Origin` + `X-Requested-With: fooyre` appliqué aussi à `/auth/login` (protection contre la connexion forcée), en plus de refresh/logout. Le jeton Bearer éventuellement envoyé à ces trois routes est ignoré (un jeton expiré n'empêche pas le renouvellement).
+- `TenantContext` (`shared.tenant`) : entreprise active issue uniquement du jeton vérifié. Complété en MVP-1.1 (ci‑dessous et §5.2). Toujours non fait : changement d'entreprise active, « déconnecter tous les appareils ».
+
+**MVP-1.1 — consolidation (2026-11-19)** :
+- **Limitation des connexions** (remplace « Bucket4j en mémoire » de §5.5 ; choix validé par la porteuse du projet) : compteurs dans PostgreSQL (`login_throttle`, migration V2), aucune dépendance. Trois clés par tentative, stockées sous forme d'empreinte HMAC-SHA256 (`shared.security.KeyedHasher`, clé dérivée de `JWT_SECRET`) : e-mail normalisé + IP (5 échecs), e-mail seul toutes IP (20, attaque distribuée), IP seule tous comptes (50) ; fenêtre 15 min, blocage 15 min, **toujours temporaire** ; la limite est vérifiée AVANT le mot de passe ; réponse `429 RATE_LIMITED` + `Retry-After`, identique que le compte existe ou non ; une connexion réussie remet à zéro les compteurs du compte (pas celui de l'IP) ; nettoyage horaire des compteurs inactifs depuis 24 h. Variables `LOGIN_THROTTLE_*` (`.env.example`). Limites : un attaquant distribué peut retarder la connexion d'un compte pendant la durée du blocage ; l'IP est l'adresse TCP (`getRemoteAddr`) — en local, toutes les requêtes passant par le proxy Vite partagent `127.0.0.1` ; en production, l'IP réelle ne devra être lue d'un `X-Forwarded-For` qu'en provenance d'un proxy de confiance (lot B2).
+- **Journal d'audit** (`audit_log`, `shared.audit.AuditService`) : identifiant, horodatage UTC, acteur, entreprise, action, résultat (`SUCCESS` / `FAILURE` / `DENIED`), ressource (type + id), `traceId`, empreinte HMAC de l'IP, métadonnées **en liste blanche** (`AuditDetail` : `REASON`, `LIMIT`, `ROLE`, `SESSION_ID` ; valeurs limitées à des codes ou des UUID). Insertion seule (déclencheur qui refuse `UPDATE` / `DELETE`). Succès enregistrés dans la transaction de l'opération (`record`, propagation `MANDATORY`) ; échecs et refus dans une transaction séparée (`recordIndependently`). Événements actuels : `LOGIN_SUCCEEDED`, `LOGIN_FAILED` (motif `UNKNOWN_ACCOUNT` / `BAD_PASSWORD` / `ACCOUNT_INACTIVE`, cible = compte s'il existe), `LOGIN_RATE_LIMITED`, `LOGOUT` (seulement si une session a réellement été révoquée), `SESSION_REVOKED`, `TOKEN_REUSE_DETECTED`, `ACCOUNT_CREATED`, `BUSINESS_CREATED` (acteur nul = initialisation système). Jamais : mot de passe, haché, jeton, cookie, secret, e-mail, nom, contenu de requête. Non journalisés volontairement : renouvellements réussis (volume). Prochains lots : changement d'entreprise active, rôles, paramètres sensibles, remises, ventes annulées, accès support… (`database-schema.md` §3.8). **Durée de conservation non fixée** (validation juridique requise, `cahier-des-charges.md` §5.1) : aucune purge automatique ; aucune consultation exposée.
+- **Déconnexion** : la session locale est fermée immédiatement (renouvellement suspendu, jeton effacé, cache vidé) puis la révocation est demandée ; si le serveur ne la confirme pas (204), l'utilisateur est informé que la session peut rester ouverte côté serveur jusqu'à son expiration. Le cookie `HttpOnly` (illisible par JavaScript) reste alors dans le navigateur ; une nouvelle connexion le remplace sans révoquer l'ancienne session, qui reste orpheline jusqu'à expiration (« déconnecter tous les appareils » la couvrira).
+- **Plusieurs onglets** : renouvellements sérialisés par l'API Web Locks (`navigator.locks`, verrou `fooyre-session-refresh`) quand le navigateur la fournit : l'onglet suivant présente le cookie déjà renouvelé. Sans Web Locks (Safari < 15.4, dont Safari 14 de la cible), comportement inchangé : risque résiduel qu'un onglet soit renvoyé à la connexion. Rotation et détection de réutilisation du backend inchangées.
+- Profil `dev` : backend à l'écoute sur `127.0.0.1` (`SERVER_ADDRESS`), proxy Vite vers `http://127.0.0.1:8080` ; compte de démonstration créé par `identity.infrastructure.DemoAccountInitializer` (`@Profile("dev")`, idempotent, mot de passe `FOOYRE_DEMO_OWNER_PASSWORD`).
+- Production : `ProductionConfigurationGuard` refuse aussi une clé JWT d'exemple et `AUTH_COOKIE_SECURE` différent de `true` ; `AuthProperties` refuse partout une clé non Base64 ou de moins de 32 octets.
+
+Constats de mise en œuvre (Spring Boot 4.1.2) :
+- Starters modulaires : `spring-boot-starter-webmvc`, `-webmvc-test`, `-security-test`, `spring-boot-starter-flyway` + `flyway-database-postgresql`.
+- `UserDetailsServiceAutoConfiguration` (package `org.springframework.boot.security.autoconfigure`) est exclue : aucun utilisateur en mémoire ni mot de passe généré.
+- Messages : l'autoconfiguration `MessageSource` de Boot exige un fichier de base `messages.properties` ; le projet n'utilisant que `messages_fr.properties` (ADR‑13), la source de messages est déclarée explicitement (`shared.config.MessagesConfiguration`, français comme langue de repli).
+- Jackson 3 : `BigDecimal` en chaîne via `JsonMapperBuilderCustomizer` (`withConfigOverride` + `WRITE_BIGDECIMAL_AS_PLAIN`), lecture des décimaux non typés en `BigDecimal` ; aucun arrondi.
+- Flyway démarre sans migration (avertissement attendu « No migrations found ») ; le mécanisme est vérifié par une migration présente **uniquement** dans les ressources de test.
+- Avertissements connus et sans effet : (1) Maven interroge, sans succès (HTTP 401), les métadonnées de deux dépôts déclarés par les POM de Flyway (GitHub Packages, Azure Artifacts de Redgate) ; aucun artefact n'en provient (vérifié dans `~/.m2`) ; (2) Mockito s'attache dynamiquement à la JVM (avertissement JDK 21).
 
 **Frontend — versions retenues (phase 1, vérifiées le 2026‑11‑18)** sur le registre npm (date de publication, `engines`, `peerDependencies`) et les notes de version officielles. Règle : dernier correctif publié depuis au moins 7 jours, dans une version majeure sortie depuis au moins un mois ; dérogation documentée pour MSW. Environnement : Node.js 24.22.2 (LTS), npm 11.19.1 ; `engines` : `>=24.15.0 <25` avec `engine-strict`.
 
@@ -226,6 +267,7 @@ Limites connues :
 - **Sauvegardes** : sauvegardes logiques régulières (`pg_dump`) et, si l'offre retenue le permet, sauvegarde continue (archivage WAL / restauration à un instant donné) ; chiffrées ; une copie hors du fournisseur principal est recommandée pour la réversibilité ; **restauration testée** périodiquement, procédure documentée. Fréquence et rétention à fixer avec le choix d'hébergement (O12) et les validations juridiques.
 - **Réversibilité** : procédure documentée de migration vers un autre hébergeur (export complet de la base et des fichiers, reconfiguration) ; permet une migration future vers une infrastructure au Sénégal ou dans une autre juridiction appropriée.
 - **Localisation** : les données financières et commerciales restent dans cette infrastructure (D18) ; seule l'API Anthropic reçoit, après validation juridique, les instantanés d'analyse minimisés.
+- **Démonstration publique sur Render (préparée le 2026-11-20, non déployée)** : choix de la porteuse du projet pour une **démonstration** (base dédiée et vierge, comptes de démonstration) ; il ne tranche pas O12 pour la production. Static Site (frontend) + Web Service Docker (API) + Render Postgres 18, région Francfort ; API servie sous l'origine du frontend par réécriture `/api/*` (cookie `SameSite=Strict` et contrôle `Origin` conservés, aucun CORS) ; rôle applicatif `fooyre_app` distinct du propriétaire (RLS). Versions relevées sur render.com le 2026-11-20 (PostgreSQL 13 à 18, 18 par défaut). Guide, variables, coûts et points bloquants : `docs/deploiement-render.md`. Les validations juridiques (CDP, transferts) n'étant pas obtenues, la démonstration ne doit contenir **aucune donnée personnelle réelle**.
 
 ---
 
@@ -238,7 +280,7 @@ Limites connues :
 | `shared` | Transverse : configuration, sécurité (filtres, JWT), contexte tenant, erreurs (Problem Details), `Money`, audit, idempotence, pagination, horloge, messages localisés (`MessageSource`), stockage de fichiers (`FileStorage`) | — |
 | `identity` | Utilisateurs, authentification, mots de passe, jetons de rafraîchissement, invitations | shared |
 | `business` | Entreprises (tenants), appartenances et rôles, invitations, paramètres (devise, TVA et mode HT/TTC, stock négatif, numérotation, consentement IA, limite de remise des employés, locale par défaut), approbation des accès support | shared, identity |
-| `gestion` | Catégories, produits, stocks et mouvements, approvisionnements, clients, fournisseurs | shared, business |
+| `gestion` | Catégories, produits, stocks et mouvements, approvisionnements, clients, fournisseurs | shared, business, identity (MVP-3 : `UserAccountService.fullNamesOf` pour afficher l'auteur d'un mouvement — service applicatif public uniquement) |
 | `commerce` | Ventes, lignes, contrôle des remises, paiements, annulations (réintégration par ligne), remboursements, **avoirs clients**, reçus, instantané hors ligne | shared, business, gestion (API stock/produits) |
 | `finance` | Dépenses, comptes de trésorerie, mouvements de trésorerie, **service d'indicateurs financiers** (seule source des calculs §3 du cahier des charges) | shared, business, commerce (lecture) |
 | `dashboard` | Agrégation pour l'écran d'accueil, alertes | finance, gestion, commerce (lecture) |
@@ -263,7 +305,7 @@ Règles : les contrôleurs n'appellent que `application` ; les entités ne sorte
 |---|---|
 | `main.tsx` | Démarrage en deux temps : données fictives éventuelles (`@mocks-entry`), puis chargement de l'application |
 | `app/` | Rendu, providers (`QueryClientProvider`, i18n, contexte d'exécution), routes (`createBrowserRouter`), future garde d'authentification |
-| `layouts/` | `AppLayout` mobile‑first (en‑tête, contenu, bandeau « données fictives ») |
+| `layouts/` | `AppLayout` (refonte « Le fil d'or », étape 2) : barre latérale vert profond `Sidebar` (≥ 768 px ; rail de 72 px repliable, réduit par défaut de 768 à 1279 px), barre supérieure, tiroir latéral modal sur mobile (`shared/ui/Drawer`), bandeau « données fictives ». Rubriques groupées dans `app/navigation.ts` (Pilotage, Commerce, Catalogue et stock, Paramètres en bas), filtrées par permission (affichage seulement). Le choix « menu réduit » vit dans l'état de la mise en page pendant la session et n'est pas enregistré (stockage local interdit, ADR‑04) |
 | `features/auth` | Connexion, inscription, invitation, choix de l'entreprise active |
 | `features/session` | Contrat `/me` (types, permissions nommées), états de session (`loading`, `ready`, `no-business`, `expired`, `forbidden`, `error`), changement d'entreprise active (`switchBusiness` : jeton en mémoire, cache réinitialisé, `/me` rechargé — ADR‑04) |
 | `features/products`, `categories`, `inventory`, `customers`, `suppliers` | GESTION |
@@ -278,12 +320,12 @@ Règles : les contrôleurs n'appellent que `application` ; les entités ne sorte
 | `shared/api` | Instance Axios, intercepteurs (jeton, rafraîchissement, erreurs Problem Details), clés de requêtes ; traduction **centralisée** des erreurs (`errorMessages.ts` : code stable → statut → réseau / délai dépassé ; jamais le texte du serveur), affichée par `shared/ui/ApiErrorMessage` (référence `traceId` pour 5xx, `Retry-After` pour 429) |
 | `shared/auth` | Jeton d'accès **en mémoire uniquement** ; rafraîchissement de session préparé (requête unique partagée) mais non branché tant que le backend n'existe pas ; coordination entre onglets prévue en phase 2 |
 | `shared/config` | Lecture des variables publiques `VITE_*` (aucun secret) |
-| `shared/theme` | Jetons de design (variables CSS) utilisés par `tailwind.config.ts` |
+| `shared/theme` | Jetons de design (variables CSS) utilisés par `tailwind.config.ts` : charte officielle (#112F2B, #D5C69A, #F8F8F4, #FFFFFF) et nuances dérivées, plus **une** couleur fonctionnelle, la terre cuite #A64B32 réservée aux erreurs (validée le 2026-11-20). Contrastes WCAG figés par `contrast.test.ts` (calculés depuis `tokens.css`) |
 | `mocks/` | **Données fictives MSW** (handlers, fixtures marquées) : serveur de développement avec `VITE_ENABLE_MOCKS=true` et tests uniquement. Quatre verrous : build refusé si `VITE_ENABLE_MOCKS=true` ; plugin `msw/vite` branché seulement sur le serveur de développement ; alias `@mocks-entry` pointant vers un module vide hors de ce cas (aucune référence à `virtual:msw`, aux handlers ni aux fixtures) ; contrôle `scripts/verify-build.mjs` du dossier `dist/` après chaque build |
 | `test/` | Configuration Vitest et serveur MSW des tests (`msw/node`, toute requête non simulée fait échouer le test) |
 | `shared/i18n` | Configuration de l'internationalisation, catalogues `locales/fr/` (ADR‑13) |
 | `shared/offline` | Service worker, instantané local, file d'opérations en attente, synchronisation (ADR‑14 ; phase dédiée) |
-| `shared/ui` | Composants UI réutilisables (Tailwind, icônes Lucide) |
+| `shared/ui` | Système de design « Le fil d'or » (étape 1 de la refonte, 2026-11-20) : `styles.ts` (classes partagées : boutons `primary`/`accent`/`secondary`/`ghost`/`danger`, champs, panneaux, tableaux, anneau de focus), `Button`, `Field`, `Panel`, `PageHeader`, `Badge`, `Skeleton`, `EmptyState`, `Avatar`, `Drawer`, `ConfirmDialog`, `Pagination`, notifications, `ApiErrorMessage`, `BrandMark` (logo officiel, inchangé). `features/catalog/components/formStyles.ts` et `FormField.tsx` réexportent ces éléments pour compatibilité. **Typographie** : corps en polices système ; grands titres (`h1`, `font-display`) en *DM Serif Display*, auto‑hébergée (`public/fonts/dm-serif-display-latin.woff2`, sous‑ensemble latin, 24 Ko), licence SIL OFL 1.1 jointe (`public/fonts/DM-Serif-Display-OFL.txt`) ; fichier et licence relevés le 2026-11-20 sur Google Fonts (fonts.googleapis.com / fonts.gstatic.com, v17) et le dépôt github.com/google/fonts (`ofl/dmserifdisplay/OFL.txt`) ; aucune requête vers un service tiers à l'exécution |
 | `shared/lib` | Formatage monétaire/dates (`Intl`, `fr-SN`, XOF), utilitaires |
 | `shared/hooks`, `shared/types` | Hooks et types partagés |
 
@@ -305,6 +347,69 @@ Le `businessId` courant provient **exclusivement** du jeton authentifié (claim 
 4. **Tests anti‑IDOR** : une suite d'isolation obligatoire vérifie pour chaque endpoint qu'un utilisateur de l'entreprise A reçoit `404` sur une ressource de B (lecture, modification, suppression, actions), qu'aucune liste ne mélange les tenants, qu'un identifiant de B glissé dans le corps d'une requête de A (ex. `customerId` d'une vente) est rejeté, et qu'un jeton d'une appartenance révoquée est refusé.
 
 Une ressource d'un autre tenant renvoie **404** (et non 403) pour ne pas révéler son existence.
+
+#### Catalogue (MVP-2, 2026-11-19) — premier module appliquant ces règles
+- Module `gestion` : entités `Category` / `Product` héritant de `TenantScopedEntity`, repositories filtrés par `business_id`, RLS par commande sans `DELETE`, FK composite produit → catégorie. Règle ArchUnit ajoutée : dans les modules à données d'entreprise, aucun appel à `findById`, `findAll` sans critère, `delete…` d'un repository (auto‑test sur une classe fautive).
+- Preuve RLS avec le rôle applicatif réel (`CatalogRowLevelSecurityIntegrationTest`) : services exécutés pour deux entreprises ; SQL direct croisé (lecture, insertion, modification, suppression, déplacement d'une ligne, association à la catégorie d'une autre entreprise) refusé ; aucune ligne sans contexte ; pas de fuite sur l'unique connexion du pool.
+- Prix d'achat : permission `COST_READ` existante (pas de nouvelle permission) ; retiré de la réponse par le serveur, ignoré à l'écriture sans ce droit.
+- Catégorie archivée : association des produits CONSERVÉE (historique), plus proposée ni modifiable, ne peut plus être choisie pour un produit (un produit peut garder celle qu'il avait).
+- Prix de vente ≥ 0 (0 admis : article offert, échantillon) et prix d'achat de référence ≥ 0 : **même précision**, au plus les décimales de la devise (XOF : aucune, EUR/USD : 2) ; refusé sinon, jamais arrondi (décision de la porteuse du projet, 2026-11-19 ; auparavant le prix d'achat acceptait 4 décimales). Valeurs antérieures conservées et renvoyées telles quelles. La précision à 4 décimales reste celle des coûts unitaires CALCULÉS (CMP, D1) du futur module de stock. TVA (D4) : non gérée dans ce lot (les paramètres fiscaux de l'entreprise n'existent pas encore) ; le prix saisi sera interprété HT/TTC quand ils existeront.
+- Audit : `CATEGORY_CREATED/UPDATED/ARCHIVED`, `PRODUCT_CREATED/UPDATED/ARCHIVED` (acteur, entreprise, cible) — aucun prix, nom ni code dans l'événement.
+- Frontend : pages `/products` (recherche différée, filtres et tri dans l'URL, pagination serveur), `/products/new`, `/products/:id`, `/products/:id/edit`, `/categories` ; montants saisis et transmis en chaînes (aucune conversion en `number`) ; confirmations avant archivage ; notifications ; aucune donnée fictive.
+
+#### MVP de démonstration : ventes, CMP, tableau de bord, assistante IA (2026-11-19)
+- **Migration `V7__sales_cost_and_ai.sql`** : paramètres `business` (TVA désactivée, taux 18 %, saisie TTC par défaut, limite de remise employé 0 %, consentement IA désactivé), `product_stock.average_cost` (CMP, NULL = inconnu), type de mouvement `SALE_OUT`, `business_sequence`, `sale`, `sale_line`, `ai_usage` ; RLS par commande (DELETE de lignes autorisé uniquement pour un BROUILLON) ; déclencheur interdisant toute modification des lignes d'une vente confirmée.
+- **Ventes (`commerce`)** : brouillon → confirmation ATOMIQUE sous verrou de la vente : prix relus en base, montants par `TaxCalculator` (règles §3.2 **provisoires, O2**), contrôle de la limite de remise (D14 ; forme provisoire O11 = % du montant brut), numéro par entreprise (`INSERT … ON CONFLICT DO UPDATE` sur `business_sequence`, verrouillé jusqu'au COMMIT : aucun doublon, aucun trou), sorties de stock par `StockService.recordSaleExits` (même journal, mêmes verrous ordonnés par produit, même règle de stock négatif — aucun second système de quantités), photographie des lignes avec le CMP courant. Tout refus annule tout. Idempotence : clé de création et clé de confirmation conservées sur la vente. Refus de remise journalisé avant toute écriture (exception `noRollbackFor`, comme les sorties refusées). Annulation d'une vente CONFIRMÉE, retours, avoirs : **non implémentés** (D11, O7, O8).
+- **Statut de règlement** calculé : aucun paiement n'existe (Wave non connecté) → `UNPAID` (ou `PAID` si total nul) ; aucun paiement manuel ; jamais « réglée » sans preuve.
+- **CMP (D1)** : entrée avec coût sur stock ≤ 0 → coût de l'entrée ; sur stock positif de CMP connu → moyenne pondérée (4 décimales, HALF_UP) ; entrée sans coût → CMP inconnu ; entrée avec coût sur stock positif de CMP inconnu → reste inconnu ; sorties, ajustements, ventes → inchangé. **Reprise** : tous les stocks existants ont un CMP inconnu (aucun coût historique fiable) ; le prix d'achat de référence n'est jamais utilisé comme coût constaté ; une marge n'est présentée que si toutes les lignes ont un coût connu.
+- **Indicateurs** : `finance.FinancialMetricsService` (chiffre d'affaires TTC des ventes confirmées par période dans le fuseau de l'entreprise, encaissements = 0, marge brute seulement si fiable) ; `dashboard` les présente (montants réservés à `DASHBOARD_FULL`).
+- **Assistante IA (`intelligence`)** : port `AiClient`, `AnthropicAiClient` (SDK officiel `com.anthropic:anthropic-java:3.3.0`, résolu sur Maven Central le 2026-11-19 ; modèle par défaut `claude-opus-5-5` relevé le 2026-11-19 dans la documentation de référence Anthropic — à revérifier), sortie structurée (`outputConfig(Class)`). Effort non transmis (défaut du modèle : `medium`) ; repli serveur en cas de refus (`fallbacks`) non activé. Contrôles à CHAQUE question : `AI_ENABLED` (+ `AI_PRODUCTION_APPROVED` en prod), clé configurée, consentement du propriétaire relu en base, quotas de l'entreprise (`AI_DAILY_REQUESTS_PER_BUSINESS`, `AI_MONTHLY_BUDGET_PER_BUSINESS_USD`). Instantané construit selon les permissions (aucun coût sans `COST_READ`, aucun montant sans `DASHBOARD_FULL`, clients pseudonymisés C1…, noms remis par le serveur après validation). Validation : chaque nombre cité doit figurer dans l'instantané/la question (petits entiers 0–12 tolérés), références existantes ; sinon `502 AI_INVALID_OUTPUT`. Actions seulement PROPOSÉES (brouillon de vente, recherche, fiche client) puis exécutées par les routes normales après confirmation. `ai_usage` + audit `AI_QUERY` sans contenu. Invite versionnée `prompts/assistant-v1.md`. Le plafond global mensuel (`AI_GLOBAL_MONTHLY_BUDGET_USD`) n'est pas encore appliqué.
+- **Saisie vocale** : API Web Speech du navigateur (`webkitSpeechRecognition`, fr-FR) ; aucun audio stocké ni envoyé à FOOYRE ; information affichée sur le traitement distant possible par le navigateur ; repli sur la saisie écrite.
+- **Wave** : non intégré (aucun identifiant marchand, documentation d'intégration non vérifiée). Contrat cible : configuration marchand PAR ENTREPRISE (aucun compte unique FOOYRE), paiement `PENDING` créé par le serveur, confirmation uniquement par notification signée vérifiée ou vérification auprès de Wave, identifiant de transaction unique par entreprise (idempotence), contrôle du montant et de la devise.
+
+#### Clients (MVP-4A, 2026-11-19)
+- Module `gestion` (comme prévu au §4.1) : `Customer` (`TenantScopedEntity`), `CustomerRepository` (méthodes filtrées par entreprise + `findAll(Specification)` construite par `CustomerSearch` avec l'entreprise), `CustomerService`, `CustomerController` (`/api/v1/customers`). Contrat : `api-specification.md` §2.3 ; schéma : `database-schema.md` §3.2.
+- Données personnelles : jamais dans l'audit (cible = identifiant), ni dans les journaux techniques (aucune URL avec paramètres n'est journalisée) ; l'empreinte d'idempotence dérive des données mais n'est jamais exposée.
+- Permissions de la matrice D3 inchangées : l'employé crée et modifie un client (`CUSTOMER_WRITE`), sans archiver.
+- Frontend : `features/customers` — `/clients`, `/clients/new`, `/clients/:id`, `/clients/:id/edit` (chemins en français à la demande de la porteuse du projet ; l'API reste `/customers`). Recherche différée : la mise à jour de l'URL part toujours des paramètres À JOUR (un filtre choisi pendant le délai n'est plus écrasé) ; **le même défaut existe encore dans `ProductsPage` et `StockPage`** (non corrigé : hors périmètre du lot).
+- Navigation : 5 entrées ; sous 360 px environ, la 5ᵉ passe sur une seconde ligne (toutes visibles, cibles ≥ 44 px).
+
+#### Stock (MVP-3, 2026-11-19)
+- Tables `product_stock` (projection verrouillable) et `stock_movement` (journal en insertion seule : déclencheur + RLS sans UPDATE/DELETE) ; contrat : `api-specification.md` §2.3, schéma : `database-schema.md` §3.2.
+- **Concurrence** : toute opération verrouille la ligne de stock (`SELECT … FOR UPDATE`, `ProductStockRepository.lockByBusinessIdAndProductId`) ; l'initialisation verrouille le produit (`ProductRepository.lockByIdAndBusinessId`) pour qu'une seule initialisation réussisse. Le paramètre « stock négatif » est relu dans la même transaction, après le verrou. Prouvé par `StockConcurrencyIntegrationTest` (fils réels : sorties concurrentes sans stock négatif, entrées concurrentes sans perte, initialisations concurrentes, même clé d'idempotence en parallèle).
+- **Idempotence** : clé UUID obligatoire conservée sur le mouvement (unicité durable, sans expiration) + empreinte SHA‑256 ; rejeu identique → mouvement existant (`200`, `Idempotent-Replay: true`), contenu différent → `409 IDEMPOTENCY_KEY_REUSED`. Une violation d'unicité concurrente est traduite par nom de contrainte.
+- **Précision** : quantités `BigDecimal`, décimales par unité (`MeasurementUnit.quantityDecimals` : unités dénombrables 0, mesures 3), jamais arrondies ; même règle côté frontend (`UNIT_QUANTITY_DECIMALS`), aperçu calculé en entiers `BigInt` à échelle fixe (`shared/lib/decimalMath.ts`), jamais en `number`. L'unité d'un produit dont le stock est suivi n'est plus modifiable (`LOCKED`).
+- **Permissions** (aucune nouvelle) : `STOCK_READ` (O,M,E), `STOCK_ADJUST` (O,M), `COST_READ` (O,M) pour la valeur estimée, `BUSINESS_SETTINGS_READ` (O,M) / `BUSINESS_SETTINGS_UPDATE` (O) pour `allowNegativeStock`.
+- **Valeur estimée** : quantité × prix d'achat de RÉFÉRENCE, présentée comme estimation ; ce n'est pas le CMP (D1), qui reste à implémenter (coût unitaire sur les entrées : décision à prendre).
+- **Coût unitaire des entrées** (finalisation MVP-3, V5) : facultatif, `ENTRY` uniquement, > 0, précision de la devise ; saisi et lu uniquement avec `COST_READ` (permission existante, aucune nouvelle) ; retiré des vues par le service sans ce droit ; immuable ; sans effet sur le prix d'achat de référence ; aucun CMP calculé (D1 reste à implémenter, il pourra s'appuyer sur ces coûts).
+- **Sorties refusées** : `STOCK_EXIT_REJECTED_INSUFFICIENT` (`DENIED`). Mécanisme transactionnel : le refus intervient AVANT toute écriture ; l'événement est inséré dans la transaction de l'opération puis `InsufficientStockException` est levée, déclarée `noRollbackFor` sur `StockService.record` : la transaction valide uniquement l'événement. `REQUIRES_NEW` écarté : une seconde connexion pendant que la première détient le verrou du stock pourrait épuiser le pool (prouvé sans blocage avec une connexion unique et le rôle applicatif réel, `StockRowLevelSecurityIntegrationTest`).
+- **Navigation mobile** : sous `sm`, entrées en colonnes auto‑adaptées (icône au‑dessus du libellé, cible ≥ 44 px), toutes visibles, retour à la ligne si le menu s'allonge ; barre horizontale inchangée à partir de `sm`.
+- **Audit** : un événement par opération (cible `STOCK_MOVEMENT`, `REASON` = type) ; ni quantité, ni motif, ni nom de produit dans l'événement (le journal métier est `stock_movement`). `SETTINGS_CHANGED` (`ALLOW_NEGATIVE_STOCK_ENABLED|DISABLED`) uniquement si la valeur change.
+- **Frontend** : `features/stock` — `/stock` (indicateurs cliquables, filtres et tri dans l'URL, pagination serveur, actions, paramètre stock négatif), `/stock/:productId` (détail + historique), `/stock/history` ; opérations en deux temps (saisie avec aperçu exact, puis confirmation), clé d'idempotence générée à l'ouverture du formulaire et réutilisée à chaque nouvel envoi.
+
+#### Isolation par entreprise — règles OBLIGATOIRES des modules métier (MVP-1.1, 2026-11-19)
+Mécanisme en place et **prouvé** (`RowLevelSecurityIntegrationTest` : rôle applicatif réel, pool d'une seule connexion) :
+- `shared.tenant.TenantContext` : entreprise active issue **uniquement** du jeton revérifié en base à chaque requête (`SessionVerificationService`). Aucun identifiant d'entreprise du client n'est lu (tests : paramètre, en‑têtes `X-Business-Id` / `X-Expected-Business-Id`, jeton signé désignant une autre entreprise ou l'appartenance d'un autre utilisateur → refus).
+- `shared.tenant.TenantAwareJpaTransactionManager` (remplace le gestionnaire de Boot) : au début de **chaque** transaction, `SELECT set_config('app.business_id', <id ou ''>, true)`. Valeur **locale à la transaction** : effacée au COMMIT/ROLLBACK avant le retour de la connexion dans le pool Hikari (aucune fuite, vérifiée avec une seule connexion réutilisée) ; toujours écrite, vide sans entreprise active. JdbcTemplate et Spring Data partagent ce gestionnaire.
+- `shared.tenant.TenantScopedEntity` : `business_id` affecté à l'insertion depuis `TenantContext`, non modifiable ; refus sans entreprise active ou si l'entité porte une autre entreprise.
+
+Toute **nouvelle table métier** (MVP-2 et suivants) DOIT, dans sa migration :
+1. `business_id UUID NOT NULL` + FK vers `business` ; `UNIQUE (business_id, id)` ; FK **composites** `(business_id, x_id) → x(business_id, id)` vers les autres tables métier ; index commençant par `business_id` pour les recherches et les listes.
+2. Activer la RLS avec exactement ce modèle (identique à la table sonde `src/test/resources/db/rls-probe`) :
+   ```sql
+   ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY <table>_tenant_isolation ON <table>
+       USING (business_id = NULLIF(current_setting('app.business_id', true), '')::uuid)
+       WITH CHECK (business_id = NULLIF(current_setting('app.business_id', true), '')::uuid);
+   ```
+   Sans contexte, aucune ligne n'est visible ni insérable (échec fermé). Le rôle applicatif n'est ni propriétaire, ni superutilisateur, ni `BYPASSRLS` (vérifié par test). Ne jamais désactiver la RLS pour contourner un problème.
+3. Entité JPA héritant de `TenantScopedEntity` ; repository : `findByIdAndBusinessId` (jamais `findById` seul) et listes filtrées par `business_id` — la RLS est une **seconde** barrière, pas la seule.
+4. Tout accès aux données métier se fait **dans une transaction** (services `@Transactional`) : hors transaction, la RLS ne laisse rien voir.
+5. Chaque route ajoutée à la suite d'isolation : ressource de B demandée par A → `404` (lecture, modification, action), identifiant de B dans un corps → refus, liste sans ligne de B.
+
+Tables actuelles **sans** RLS, par conception : `app_user`, `refresh_token`, `login_throttle` (identité, lues avant tout contexte), `business` (le tenant lui‑même, lu uniquement avec l'identifiant vérifié), `business_membership` (lue à la connexion, toujours filtrée par l'utilisateur), `audit_log` (écrite hors contexte d'entreprise lors des échecs de connexion ; aucune lecture exposée — une RLS de lecture accompagnera la future consultation).
+
+**Conditions remplies avant MVP-2** : mécanisme de contexte, RLS prouvée avec le rôle réel, conventions ci‑dessus. **À faire dans chaque lot métier** : migration conforme, tests d'isolation de chaque route.
 
 ### 5.3 Autorisation — matrice des permissions techniques (D3)
 - Contrôle sur **chaque** endpoint par permission nommée (`@PreAuthorize("hasAuthority('SALE_CANCEL')")`) ; le mapping rôle → permissions est centralisé (`shared.security.RolePermissions`) et couvert par un test qui fige cette matrice. Rien n'est accessible par défaut.
@@ -361,7 +466,7 @@ Les avoirs sont **créés** uniquement lors d'une annulation (`SALE_CANCEL`), **
 
 ### 5.5 Autres mesures
 - Mots de passe : `Argon2PasswordEncoder` (ou bcrypt coût ≥ 12), politique de longueur minimale, verrouillage progressif après échecs.
-- Limitation de débit : connexion, inscription, endpoints publics du catalogue, IA (Bucket4j en mémoire au MVP).
+- Limitation de débit : connexion — compteurs PostgreSQL depuis MVP-1.1 (voir ADR-12, « MVP-1.1 ») ; inscription, endpoints publics du catalogue, IA : mécanisme à choisir dans leurs lots (Bucket4j en mémoire initialement envisagé).
 - Validation systématique des entrées (`jakarta.validation`), tailles maximales de chaînes et de listes.
 - En‑têtes de sécurité : CSP stricte, `X-Content-Type-Options`, `Referrer-Policy`, HSTS en production.
 - CSRF : voir ADR‑04 (Bearer sur les routes métier ; `SameSite=Strict`, `Path` restreint, contrôle `Origin` et en‑tête personnalisé sur les routes à cookie).
@@ -456,7 +561,8 @@ Utilisateur ──▶ POST /api/v1/intelligence/analyses {type, période}
 ## 9. Observabilité et exploitation
 
 - Logs JSON structurés avec `traceId`, `businessId` (jamais de données personnelles ni de secrets).
-- Actuator : `health` (liveness/readiness) public, autres endpoints protégés ou désactivés en production.
+- Actuator : `health` (liveness/readiness) public, autres endpoints protégés ou désactivés en production. **Liveness** = processus vivant (indépendante de PostgreSQL) ; **readiness** = `readinessState` + base de données (503 si PostgreSQL est indisponible, retour automatique) ; délai d'obtention d'une connexion 5 s.
+- **Développement local (MVP-0)** : `docker-compose.yml` (racine) ne contient que PostgreSQL 18.7 (volume `fooyre-pgdata`, port lié à `127.0.0.1`, UTF8, paramètres régionaux `builtin` `C.UTF-8`, UTC) ; `infra/postgres/init/01-roles.sh` crée au premier démarrage le rôle **propriétaire** (migrations) et le rôle **applicatif** (données uniquement, sans `CREATE` ni `TEMP`, ni superutilisateur, ni `BYPASSRLS`). Backend et frontend s'exécutent sur la machine hôte. Compromis assumé en développement : Flyway s'exécute dans l'application avec le rôle propriétaire ; en production, migrations séparées (lot B2). Ce n'est pas la configuration de production (images, Nginx, secrets en fichiers, TLS : lot B2).
 - Métriques Micrometer : latence API, erreurs, appels IA (durée, jetons, coût).
 - Limites du MVP à revoir à la montée en charge : limitation de débit en mémoire (→ Redis ou PostgreSQL), génération PDF synchrone (→ tâches asynchrones).
 
@@ -521,8 +627,8 @@ FOOYRE/
 │       │       ├── application.yml
 │       │       ├── application-dev.yml
 │       │       ├── application-prod.yml
-│       │       ├── db/migration/          (V1__..., V2__... Flyway)
-│       │       ├── i18n/                  (messages_fr.properties — ADR‑13)
+│       │       ├── db/migration/          (V1__..., V2__... Flyway — vide en B1 : première migration avec les premières tables)
+│       │       ├── i18n/                  (messages_fr.properties — ADR‑13 ; codes d'erreur Problem Details)
 │       │       └── prompts/               (invites système IA versionnées)
 │       └── test/java/com/fooyre/
 │           ├── architecture/              (ArchUnit)

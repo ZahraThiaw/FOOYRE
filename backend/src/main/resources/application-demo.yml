@@ -1,0 +1,18 @@
+# Profil demo : à combiner EXPLICITEMENT avec prod (SPRING_PROFILES_ACTIVE=prod,demo) pour une
+# démonstration publique sur une base DÉDIÉE et vierge. Il active uniquement la création idempotente
+# des deux comptes propriétaires de démonstration (identity.infrastructure.DemoAccountInitializer) :
+# un compte existant n'est jamais modifié, un mot de passe n'est jamais écrasé.
+# Mots de passe : AUCUNE valeur par défaut. Sans FOOYRE_DEMO_OWNER_PASSWORD (resp.
+# FOOYRE_DEMO2_OWNER_PASSWORD), le compte correspondant n'est pas créé. Ces variables sont saisies
+# dans le gestionnaire de secrets de l'hébergeur, jamais dans le dépôt.
+fooyre:
+  demo:
+    owner-email: ${FOOYRE_DEMO_OWNER_EMAIL:}
+    owner-full-name: ${FOOYRE_DEMO_OWNER_FULL_NAME:Administrateur Démo}
+    owner-password: ${FOOYRE_DEMO_OWNER_PASSWORD:}
+    business-name: ${FOOYRE_DEMO_BUSINESS_NAME:FOOYRE Commerce Démo}
+  demo2:
+    owner-email: ${FOOYRE_DEMO2_OWNER_EMAIL:}
+    owner-full-name: ${FOOYRE_DEMO2_OWNER_FULL_NAME:Aminata Sarr}
+    owner-password: ${FOOYRE_DEMO2_OWNER_PASSWORD:}
+    business-name: ${FOOYRE_DEMO2_BUSINESS_NAME:Nafi Chic}

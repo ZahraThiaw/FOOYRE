@@ -68,6 +68,10 @@ erDiagram
 
 ### 3.1 Identité et tenants
 
+> **Implémenté en MVP-1** (`V1__identity_and_business.sql`, 2026-11-19) : `app_user` (sans `phone`, `failed_login_count`, `locked_until`), `business` (identité et statut seulement : `name`, `legal_name`, `currency`, `timezone`, `default_locale`, `status` ; paramètres fiscaux, formule et IA ajoutés par leurs lots), `business_membership` (sans `invited_by`, `revoked_by`), `refresh_token` (sans `user_agent`, `ip_hash`). Unicité de l'e-mail par index `lower(email)`. **Pas de RLS** sur `business_membership` / `refresh_token` (lus à la connexion avant tout contexte, voir `architecture.md` §5.2).
+
+> **Implémenté en MVP-1.1** (`V2__login_throttle_and_audit_log.sql`) : `login_throttle` (`key_hash` HMAC, `key_type`, `failure_count`, `window_started_at`, `blocked_until`, `updated_at`, index de nettoyage) et `audit_log` (§3.8 ; colonnes `outcome` et `trace_id` ajoutées, `support_grant_id` reporté au lot accès support ; insertion seule par déclencheur ; index `(business_id, occurred_at)`, `(actor_user_id, occurred_at)`, `(action, occurred_at)`). Modèle RLS des futures tables métier : `architecture.md` §5.2.
+
 **`app_user`** — compte utilisateur (global, non rattaché à un tenant)
 | Colonne | Type | Notes |
 |---|---|---|
@@ -123,6 +127,8 @@ Toute modification des paramètres sensibles (fiscaux, stock, devise) et de la l
 
 ### 3.2 GESTION
 
+> **Implémenté en MVP-2** (`V3__catalog_categories_and_products.sql`) : `category` (`name` ≤ 100, `description` ≤ 500, `status` `ACTIVE`/`ARCHIVED` + `archived_at`, `version` ; **pas de `parent_id`** à ce stade) et `product` (`name`, `description`, `sku`, `barcode`, `unit`, `category_id`, **`purchase_price NUMERIC(19,4)`** = prix d'achat de RÉFÉRENCE saisi (règle de saisie : décimales de la devise, comme le prix de vente, depuis le 2026-11-19 ; l'échelle 4 n'est qu'une capacité de stockage, conservée sans migration pour les valeurs déjà enregistrées) — distinct de `average_cost` (CMP, D1) qui sera ajouté par le module de stock —, `sale_price NUMERIC(19,2)` ≥ 0, `status` + `archived_at`, `version`). Unicité **parmi les éléments ACTIFS** de l'entreprise (index partiels) : `lower(name)` des catégories, `lower(sku)`, `barcode` ; un élément archivé libère ses identifiants. FK composite `(business_id, category_id) → category(business_id, id)`. RLS : politiques `SELECT`, `INSERT`, `UPDATE` ; **aucune politique `DELETE`** (aucune suppression physique). Non créés (lots suivants) : `vat_rate`, `track_stock`, `low_stock_threshold`, `average_cost`, `publicly_visible`, image.
+
 **`category`** — `id`, `business_id`, `name`, `parent_id` (FK composite, 1 niveau), `archived_at`, timestamps. `UNIQUE (business_id, lower(name), parent_id)`.
 
 **`product`**
@@ -142,6 +148,15 @@ Toute modification des paramètres sensibles (fiscaux, stock, devise) et de la l
 | publicly_visible | BOOLEAN | catalogue digital |
 | public_description, image_key | TEXT, VARCHAR | `image_key` : clé d'objet (ADR‑15) |
 | archived_at, timestamps, version | | |
+
+> **Implémenté en MVP-3** (`V4__stock.sql`, 2026-11-19) — écarts assumés par rapport au modèle cible ci‑dessous :
+> - `business.allow_negative_stock BOOLEAN NOT NULL DEFAULT FALSE` (D5).
+> - `product_stock` : `id` UUID (+ `UNIQUE (business_id, id)`), `UNIQUE (business_id, product_id)`, `quantity NUMERIC(19,3)`, **`minimum_quantity NUMERIC(19,3) ≥ 0`** (seuil d'alerte porté par le stock au lieu de `product.low_stock_threshold`), `created_at`, `updated_at`, `version` ; FK composite vers `product`. Une ligne n'existe qu'après l'initialisation (absence = « non suivi » ; `track_stock` non créé).
+> - `stock_movement` : `movement_type` ∈ `INITIAL`, `ENTRY`, `EXIT`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT` (les types `PURCHASE_*`, `SALE_*` viendront avec leurs modules) ; **`quantity` strictement positive + `quantity_before` / `quantity_after`** (au lieu d'une quantité signée) avec `CHECK` d'équilibre selon le type et `INITIAL` ⇒ avant = 0 ; `reason` (obligatoire sauf `INITIAL`, ≤ 255), `reference` (≤ 100), `created_by` FK `app_user`, `created_at`, `idempotency_key UUID NOT NULL` + `UNIQUE (business_id, idempotency_key)` (unicité durable), `request_hash CHAR(64)` (empreinte de la requête). FK composite `(business_id, product_id) → product_stock`. **Pas encore de `unit_cost`** (CMP : lot ultérieur, proposition dans le rapport MVP-3). Index `(business_id, product_id, created_at DESC)` et `(business_id, created_at DESC)`.
+> - Insertion seule : déclencheur `stock_movement_reject_change` (UPDATE/DELETE refusés) ; RLS `product_stock` SELECT/INSERT/UPDATE, `stock_movement` SELECT/INSERT uniquement — prouvé avec le rôle applicatif réel (`StockRowLevelSecurityIntegrationTest`).
+> - `audit_log.action` étendu : `STOCK_INITIALIZED`, `STOCK_ENTRY_RECORDED`, `STOCK_EXIT_RECORDED`, `STOCK_ADJUSTED`, `STOCK_MINIMUM_CHANGED`, `SETTINGS_CHANGED`.
+> - **Finalisation MVP-3** (`V5__stock_entry_unit_cost_and_refusal_audit.sql`) : `stock_movement.unit_cost NUMERIC(19,4)` nullable (échelle 4 = capacité de stockage pour les futurs calculs ; saisie limitée aux décimales de la devise par le service), `CHECK (unit_cost IS NULL OR (unit_cost > 0 AND movement_type = 'ENTRY'))` ; les mouvements existants gardent `NULL` (l'ajout d'une colonne nullable ne réécrit aucune ligne, le déclencheur d'insertion seule reste en vigueur). `audit_log.action` étendu avec `STOCK_EXIT_REJECTED_INSUFFICIENT`.
+> - Invariant §4.2 vérifié par les tests : `product_stock.quantity = quantity_after` du dernier mouvement, chaque mouvement enchaîne `quantity_before` = `quantity_after` du précédent.
 
 **`product_stock`** — projection : `business_id`, `product_id` (PK composite), `quantity NUMERIC(19,3)`, `updated_at`. Mise à jour uniquement par le service de stock, dans la transaction du mouvement, sous verrou `SELECT … FOR UPDATE`. Si `allow_negative_stock = false`, le service refuse tout mouvement qui rendrait la quantité négative.
 
@@ -164,6 +179,10 @@ Toute modification des paramètres sensibles (fiscaux, stock, devise) et de la l
 **`purchase`** (approvisionnement / réception) — `id`, `business_id`, `supplier_id` (nullable), `number`, `purchase_date`, `status` (`DRAFT`, `RECEIVED`, `CANCELLED`), `total_amount` (HT si TVA activée), `amount_paid` (projection des paiements fournisseurs valides), `currency`, `received_at`, `cancelled_at`, `cancellation_reason`, `notes`, timestamps, version.
 **`purchase_line`** — `id`, `business_id`, `purchase_id`, `product_id`, `quantity`, `unit_cost NUMERIC(19,4)` (HT si TVA activée), `line_total`.
 **`supplier_payment`** — `id`, `business_id`, `purchase_id`, `amount`, `currency`, `method`, `treasury_account_id`, `paid_at`, `status` (`VALID`, `VOIDED`), `void_reason`, `created_by`, `created_at`. Chaque paiement valide génère un `cash_movement` sortant ; une contre‑passation génère un mouvement `REVERSAL`. *(peut être implémenté après la phase 4)*
+
+> **Implémenté (MVP de démonstration, `V7__sales_cost_and_ai.sql`, 2026-11-19)** : voir `architecture.md` « MVP de démonstration » — `sale` (numéro BIGINT par entreprise, affiché `V-000001` ; montants et paramètres fiscaux figés à la confirmation ; clés d'idempotence de création et de confirmation), `sale_line` (photographie + `unit_cost` = CMP figé, NULL si inconnu), `business_sequence`, `ai_usage`, `product_stock.average_cost`, colonnes de paramètres de `business`. Écarts : pas encore de `payment`, `customer_credit`, `sale_cancellation_line`, `cash_movement` ; `amount_paid` calculé (0) faute de paiements.
+
+> **Implémenté en MVP-4A** (`V6__customers.sql`, 2026-11-19) : `customer` (`name` ≤ 150 **nullable**, `phone` ≤ 30 tel que saisi, `phone_digits` = colonne **générée** `regexp_replace(phone, '[^0-9]', '', 'g')` pour la recherche, `email` ≤ 254 en minuscules, `address` ≤ 500, `notes` ≤ 2000, `status` `ACTIVE`/`ARCHIVED` + `archived_at`, timestamps, `version`, `idempotency_key` + `request_hash`). `CHECK (name IS NOT NULL OR phone IS NOT NULL)`. Unicité : uniquement `(business_id, idempotency_key)` (index partiel) — aucune sur le nom ni le téléphone. `UNIQUE (business_id, id)` pour les futures FK composites des ventes. Index `(business_id, status, lower(name))`, `(business_id, phone_digits)`, `(business_id, email)`. RLS SELECT/INSERT/UPDATE, **aucune politique DELETE** ; prouvé avec le rôle applicatif réel (`CustomerRowLevelSecurityIntegrationTest`). Recherche « contient » sans index trigramme (`pg_trgm` non activé : décision à prendre si les volumes l'exigent).
 
 **`customer`** — `id`, `business_id`, `name`, `phone`, `email`, `address`, `notes`, `idempotency_key` (création éventuellement hors ligne, unicité durable), `archived_at`, timestamps, version. Le solde dû et les avoirs disponibles sont **calculés**, non stockés (ou stockés comme projections vérifiables).
 

@@ -1,0 +1,52 @@
+package com.fooyre.shared.security;
+
+/**
+ * Permissions nommées vérifiées par {@code @PreAuthorize("hasAuthority('…')")}
+ * (docs/architecture.md §5.3, D3). Le nom de chaque constante est l'autorité Spring Security.
+ * Liste alignée sur {@code frontend/src/features/session/types.ts} ({@code PERMISSIONS}).
+ */
+public enum Permission {
+    BUSINESS_READ,
+    BUSINESS_PROFILE_UPDATE,
+    BUSINESS_SETTINGS_READ,
+    BUSINESS_SETTINGS_UPDATE,
+    SALES_POLICY_MANAGE,
+    MEMBER_MANAGE,
+    SUPPORT_ACCESS_GRANT,
+    AI_CONSENT_MANAGE,
+    STOREFRONT_MANAGE,
+    CATALOG_READ,
+    CATALOG_WRITE,
+    COST_READ,
+    STOCK_READ,
+    STOCK_ADJUST,
+    SUPPLIER_MANAGE,
+    PURCHASE_MANAGE,
+    CUSTOMER_READ,
+    CUSTOMER_WRITE,
+    CUSTOMER_BALANCE_READ,
+    CUSTOMER_ARCHIVE,
+    SALE_CREATE,
+    PAYMENT_CREATE,
+    SALE_READ_ALL,
+    SALE_PRICE_OVERRIDE,
+    SALE_DISCOUNT_UNLIMITED,
+    SALE_DISCOUNT_LIMITED,
+    SALE_CANCEL,
+    PAYMENT_VOID,
+    REFUND_CREATE,
+    CUSTOMER_CREDIT_USE,
+    ORDER_REQUEST_MANAGE,
+    EXPENSE_MANAGE,
+    TREASURY_MANAGE,
+    TREASURY_OWNER_MOVEMENT,
+    FINANCE_READ,
+    REPORT_EXPORT,
+    DASHBOARD_FULL,
+    DASHBOARD_OWN_DAY,
+    AI_USE,
+    PLATFORM_BUSINESS_MANAGE,
+    PLATFORM_PLAN_MANAGE,
+    PLATFORM_AUDIT_READ,
+    PLATFORM_AI_USAGE_READ
+}

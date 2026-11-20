@@ -1,0 +1,175 @@
+# FOOYRE — Blueprint Render (préparation : AUCUN service n'est créé tant que ce fichier n'est pas
+# importé manuellement dans Render). Guide complet : docs/deploiement-render.md.
+#
+# Architecture « même origine » (exigée par la sécurité existante, ADR-04) :
+#   navigateur ──> fooyre-web (Static Site, CDN) ──/api/*──> fooyre-api (Docker, Spring Boot) ──> fooyre-db
+# Le frontend et l'API sont servis sous la MÊME origine (celle du Static Site) grâce à une règle de
+# réécriture : le cookie de rafraîchissement (HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth)
+# reste de première partie, le contrôle Origin + X-Requested-With fonctionne sans CORS, et aucune
+# protection n'est désactivée.
+#
+# AUCUN SECRET dans ce fichier :
+#   - generateValue: true  -> valeur aléatoire générée par Render (JWT_SECRET) ;
+#   - sync: false          -> valeur saisie MANUELLEMENT dans le tableau de bord à la création ;
+#   - fromDatabase         -> identifiants fournis par Render pour la base.
+#
+# Offres : « free » par défaut pour qu'AUCUNE dépense ne soit engagée par erreur. Limites (base
+# supprimée après 30 jours + 14 jours de grâce, mise en veille du service web après 15 min
+# d'inactivité) : voir docs/deploiement-render.md, « Coûts ». Remplacer par les offres payantes
+# indiquées en commentaire pour une démonstration durable.
+
+services:
+  # ---------------------------------------------------------------------------------------------
+  # API Spring Boot (Java 21) — Web Service Docker
+  # ---------------------------------------------------------------------------------------------
+  - type: web
+    name: fooyre-api
+    runtime: docker
+    region: frankfurt # région la plus proche du Sénégal parmi celles proposées ; non modifiable ensuite
+    plan: free # payant recommandé : 0.5c-512mb (ex-« Starter »)
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Déploiements manuels uniquement : pas de mise en production implicite à chaque commit.
+    autoDeployTrigger: "off"
+    buildFilter:
+      paths:
+        - backend/**
+    # Sonde « readiness » : publique par conception (aucun détail), répond UP seulement si
+    # PostgreSQL est joignable. Utilisée par Render avant de basculer le trafic.
+    healthCheckPath: /actuator/health/readiness
+    previews:
+      generation: "off"
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod,demo # « demo » : crée les deux comptes de démonstration si leurs mots de passe sont fournis
+      - key: APP_PUBLIC_BASE_URL
+        sync: false # URL HTTPS EXACTE du Static Site, ex. https://fooyre-web.onrender.com (sans / final)
+      - key: APP_DEFAULT_TIMEZONE
+        value: Africa/Dakar
+      - key: APP_DEFAULT_CURRENCY
+        value: XOF
+      # --- PostgreSQL ---
+      - key: POSTGRES_HOST
+        sync: false # « Hostname » INTERNE de fooyre-db (page Info de la base), ex. dpg-xxxxxxxx-a
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: fooyre-db
+          property: database
+      # Rôle PROPRIÉTAIRE (utilisateur par défaut Render) : migrations Flyway uniquement.
+      - key: POSTGRES_MIGRATION_USER
+        fromDatabase:
+          name: fooyre-db
+          property: user
+      - key: POSTGRES_MIGRATION_PASSWORD
+        fromDatabase:
+          name: fooyre-db
+          property: password
+      # Rôle APPLICATIF (non propriétaire, soumis à la RLS) : créé par infra/render/01-app-role.sql.
+      - key: POSTGRES_APP_USER
+        value: fooyre_app
+      - key: POSTGRES_APP_PASSWORD
+        sync: false # même mot de passe fort que celui passé au script 01-app-role.sql
+      - key: DB_POOL_MAX_SIZE
+        value: "5"
+      # --- Authentification (ADR-04) ---
+      - key: JWT_SECRET
+        generateValue: true # 256 bits aléatoires encodés en Base64 (exigence : >= 32 octets)
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      # --- Assistante IA : DÉSACTIVÉE (CLAUDE.md §9 ; validations juridiques non obtenues) ---
+      - key: AI_ENABLED
+        value: "false"
+      - key: AI_PRODUCTION_APPROVED
+        value: "false"
+      - key: AI_PROVIDER
+        value: disabled # toute valeur autre que « anthropic » interdit les appels réels
+      # Pas de ANTHROPIC_API_KEY : ne jamais réutiliser la clé locale.
+      # --- Comptes de démonstration (profil demo) : rien n'est créé sans mot de passe ---
+      - key: FOOYRE_DEMO_OWNER_EMAIL
+        sync: false
+      - key: FOOYRE_DEMO_OWNER_PASSWORD
+        sync: false # au moins 12 caractères, choisi par vous, jamais dans Git
+      - key: FOOYRE_DEMO_BUSINESS_NAME
+        value: FOOYRE Commerce Démo
+      - key: FOOYRE_DEMO2_OWNER_EMAIL
+        sync: false
+      - key: FOOYRE_DEMO2_OWNER_PASSWORD
+        sync: false
+      - key: FOOYRE_DEMO2_OWNER_FULL_NAME
+        value: Aminata Sarr
+      - key: FOOYRE_DEMO2_BUSINESS_NAME
+        value: Nafi Chic
+      # Wave : aucune variable — paiements non connectés, aucune simulation.
+
+  # ---------------------------------------------------------------------------------------------
+  # Frontend React / Vite — Static Site (CDN, gratuit)
+  # ---------------------------------------------------------------------------------------------
+  - type: web
+    name: fooyre-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build # build = tsc + vite build + contrôle anti-données fictives / localhost
+    staticPublishPath: dist
+    autoDeployTrigger: "off"
+    buildFilter:
+      paths:
+        - frontend/**
+    previews:
+      generation: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24" # package.json : node >= 24.15 < 25
+      # PUBLIC (intégré au code livré) : chemin RELATIF, même origine que la page. Ne jamais y mettre
+      # une URL d'un autre domaine (l'API n'autorise aucune requête cross-origin) ni un secret.
+      - key: VITE_API_BASE_URL
+        value: /api/v1
+      - key: VITE_ENABLE_MOCKS
+        value: "false"
+    routes:
+      # 1) API : relayée vers le Web Service (URL PUBLIQUE à ajuster si Render attribue un suffixe).
+      - type: rewrite
+        source: /api/*
+        destination: https://fooyre-api.onrender.com/api/*
+      # 2) Application monopage : toute autre route sert index.html (pas de 404 au rechargement).
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), geolocation=(), payment=(), microphone=(self)
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000
+      # Fichiers fingerprintés par Vite : mis en cache longtemps. index.html : toujours revalidé.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+
+databases:
+  # ---------------------------------------------------------------------------------------------
+  # PostgreSQL managé — base DÉDIÉE à la démonstration, vierge, indépendante de la base locale
+  # ---------------------------------------------------------------------------------------------
+  - name: fooyre-db
+    databaseName: fooyre
+    user: fooyre_owner
+    plan: free # payant recommandé : 0.1c-256mb (ex-« Basic-256mb »)
+    region: frankfurt # même région que l'API (connexion interne)
+    postgresMajorVersion: "18"
+    # Aucune connexion externe par défaut. Ajouter TEMPORAIREMENT votre IP (/32) dans le tableau de
+    # bord pour exécuter infra/render/01-app-role.sql, puis la retirer.
+    ipAllowList: []

@@ -1,5 +1,8 @@
+import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+
+import { buttonClassName, panelClassName } from '@/shared/ui/styles';
 
 /**
  * Erreur inattendue pendant le rendu d'une route. Aucun détail technique (pile d'appels,
@@ -8,15 +11,17 @@ import { Link } from 'react-router';
 export function RouteErrorPage() {
   const { t } = useTranslation();
   return (
-    <main className="mx-auto max-w-xl space-y-4 px-4 py-10 text-center">
-      <h1 className="text-2xl font-bold">{t('errors.unexpected.title')}</h1>
-      <p className="text-ink-muted">{t('errors.unexpected.description')}</p>
-      <Link
-        to="/"
-        className="inline-flex min-h-touch items-center rounded-md bg-brand px-4 font-medium text-brand-contrast"
-      >
-        {t('errors.notFound.backHome')}
-      </Link>
+    <main className="min-h-screen bg-surface px-4 py-16">
+      <div className={`${panelClassName} mx-auto max-w-xl px-6 py-12 text-center`}>
+        <span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-danger-surface text-danger ring-1 ring-danger/30">
+          <AlertCircle className="h-7 w-7" strokeWidth={1.75} />
+        </span>
+        <h1 className="mt-5 text-3xl text-ink sm:text-4xl">{t('errors.unexpected.title')}</h1>
+        <p className="mt-2 text-ink-muted">{t('errors.unexpected.description')}</p>
+        <Link to="/" className={`${buttonClassName('primary')} mt-6`}>
+          {t('errors.notFound.backHome')}
+        </Link>
+      </div>
     </main>
   );
 }

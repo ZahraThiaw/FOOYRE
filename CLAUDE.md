@@ -101,7 +101,7 @@ Les décisions **D1 à D20** (`cahier-des-charges.md` §8.1) sont validées : ne
 - Lancer les tests concernés avant d'annoncer qu'une tâche est terminée et rapporter le résultat réel.
 
 ## 11. Conventions de code
-- Backend : Java 21 (records, `sealed`, pattern matching quand utile), Spring Boot 4.1.x (cible 4.1.2, à confirmer en phase 1 — Jackson 3 `tools.jackson`, Hibernate 7, Spring Security 7), injection par constructeur, pas de Lombok sauf décision contraire, noms de code en anglais, messages utilisateur en français.
+- Backend : Java 21 (records, `sealed`, pattern matching quand utile), Spring Boot 4.1.2 (confirmée le 2026-11-19, lot B1 — Jackson 3 `tools.jackson`, Hibernate 7, Spring Security 7 ; versions gérées par le BOM, voir `docs/architecture.md` ADR‑12), injection par constructeur, pas de Lombok sauf décision contraire, noms de code en anglais, messages utilisateur en français.
 - Abonnements : formules, fonctionnalités, quotas et limites sont des **données** (pas de constantes dans le code) ; aucun tarif figé ; aucun paiement d'abonnement.
 - API : conventions de `docs/api-specification.md` (préfixe `/api/v1`, Problem Details, pagination, codes d'erreur stables).
 - Frontend : TypeScript strict, organisation par `features/`, appels réseau via TanStack Query + Axios dans `features/*/api.ts`, styles Tailwind, icônes Lucide, formatage via `Intl` (`fr-SN`, XOF), mobile‑first.
@@ -134,8 +134,16 @@ npm run test            # Vitest
 npm run build           # vérification des types + build + contrôle anti‑données fictives de dist/
 npm run check           # typecheck + lint + test + build (équivalent CI)
 
-# Backend (à compléter)
-cd backend && ./mvnw verify
-# Environnement local (à compléter)
-docker compose up -d
+# Backend (Java 21 ; Maven 3.10.1 fourni par le wrapper ; Docker actif pour Testcontainers)
+cd backend
+./mvnw verify           # compilation + tests (PostgreSQL 18.7 via Testcontainers, ArchUnit) + JAR
+./mvnw test             # tests seuls
+mvnw.cmd verify         # Windows (cmd.exe)
+./mvnw spring-boot:test-run -Dspring-boot.run.profiles=test   # démarrage local sans PostgreSQL installé — proposée, NON VÉRIFIÉE (jamais exécutée)
+# Environnement local (MVP-0) — détail et dépannage : README.md racine
+cp .env.example .env                                  # une fois (valeurs fictives locales)
+docker compose up -d                                  # racine : PostgreSQL 18.7 (volume fooyre-pgdata)
+cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev   # PowerShell : .mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+cd frontend && npm run dev                            # http://localhost:5173 (proxy /api -> :8080)
+docker compose down                                   # arrêt en conservant les données (JAMAIS -v sans le vouloir)
 ```

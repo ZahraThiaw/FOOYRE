@@ -1,0 +1,73 @@
+{
+  "title": "Clients",
+  "intro": "Retrouvez vos clientes et clients, leurs coordonnées et vos notes.",
+  "new": "Nouveau client",
+  "search": "Rechercher (nom, téléphone ou e-mail)",
+  "status": {
+    "label": "Statut",
+    "ACTIVE": "Actif",
+    "ARCHIVED": "Archivé",
+    "ALL": "Tous"
+  },
+  "filters": {
+    "ACTIVE": "Clients actifs",
+    "ARCHIVED": "Clients archivés",
+    "ALL": "Tous les clients"
+  },
+  "sort": {
+    "label": "Trier par",
+    "name,asc": "Nom (A → Z)",
+    "createdAt,desc": "Ajoutés récemment",
+    "updatedAt,desc": "Modifiés récemment"
+  },
+  "empty": {
+    "none": "Aucun client pour le moment. Ajoutez votre premier client pour retrouver facilement ses coordonnées.",
+    "noResult": "Aucun client ne correspond à votre recherche.",
+    "clear": "Effacer la recherche"
+  },
+  "list": {
+    "noContact": "Aucune coordonnée"
+  },
+  "form": {
+    "createTitle": "Nouveau client",
+    "editTitle": "Modifier le client",
+    "identityHint": "Indiquez au moins un nom ou un numéro de téléphone.",
+    "name": "Nom complet ou raison sociale",
+    "phone": "Téléphone",
+    "phoneHint": "Avec ou sans indicatif : 77 123 45 67, +221 77 123 45 67…",
+    "email": "Adresse e-mail",
+    "address": "Adresse",
+    "notes": "Notes internes",
+    "notesHint": "Visibles uniquement par l'équipe de l'entreprise.",
+    "created": "Client « {{name}} » ajouté.",
+    "updated": "Client « {{name}} » modifié.",
+    "saveFailed": "Le client n'a pas été enregistré.",
+    "errors": {
+      "identity": "Indiquez un nom ou un numéro de téléphone.",
+      "tooLong": "Le texte est trop long ({{max}} caractères au maximum).",
+      "phoneFormat": "Numéro non valide : chiffres, espaces, « + », « - », « . » ou parenthèses ; de 6 à 15 chiffres.",
+      "emailFormat": "Adresse e-mail non valide (exemple : nom@domaine.sn)."
+    }
+  },
+  "detail": {
+    "notFound": "Ce client est introuvable.",
+    "archivedNotice": "Ce client est archivé : il reste consultable mais ne peut plus être modifié.",
+    "phone": "Téléphone",
+    "email": "Adresse e-mail",
+    "address": "Adresse",
+    "notes": "Notes internes",
+    "status": "Statut",
+    "createdAt": "Ajouté le",
+    "updatedAt": "Dernière modification",
+    "archivedAt": "Archivé le",
+    "history": "Historique commercial",
+    "historyPending": "Les ventes de ce client apparaîtront ici lorsque le module Ventes sera disponible.",
+    "noSales": "Aucune vente confirmée pour ce client."
+  },
+  "archive": {
+    "title": "Archiver ce client ?",
+    "description": "« {{name}} » ne sera plus proposé dans la liste des clients actifs. Ses informations restent consultables dans les clients archivés.",
+    "done": "Client « {{name}} » archivé.",
+    "failed": "Le client n'a pas été archivé."
+  }
+}

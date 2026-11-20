@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
 import i18n from '@/shared/i18n';
+import { NotificationProvider } from '@/shared/ui/notifications';
 
 import { RuntimeContext, type RuntimeInfo } from './runtimeContext';
 
@@ -16,7 +17,9 @@ export function AppProviders({ queryClient, runtime, children }: AppProvidersPro
   return (
     <RuntimeContext.Provider value={runtime}>
       <I18nextProvider i18n={i18n}>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <NotificationProvider>{children}</NotificationProvider>
+        </QueryClientProvider>
       </I18nextProvider>
     </RuntimeContext.Provider>
   );

@@ -2,21 +2,56 @@
   "app": {
     "name": "FOOYRE",
     "tagline": "La lumière intelligente de votre entreprise.",
-    "skipToContent": "Aller au contenu principal"
+    "skipToContent": "Aller au contenu principal",
+    "logoAlt": "FOOYRE"
   },
   "demo": {
     "banner": "Données de démonstration — fictives. Aucune donnée réelle n'est affichée."
   },
+  "nav": {
+    "label": "Navigation principale",
+    "home": "Accueil",
+    "products": "Produits",
+    "categories": "Catégories",
+    "stock": "Stock",
+    "customers": "Clients",
+    "sales": "Ventes",
+    "assistant": "Assistante IA",
+    "settings": "Paramètres",
+    "groups": {
+      "steering": "Pilotage",
+      "commerce": "Commerce",
+      "catalog": "Catalogue et stock"
+    },
+    "newSale": "Nouvelle vente",
+    "menu": "Menu",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "collapse": "Réduire le menu",
+    "expand": "Déplier le menu",
+    "openAssistant": "Ouvrir l'assistante",
+    "assistantShort": "Assistante"
+  },
+  "account": {
+    "label": "Compte connecté",
+    "roleInBusiness": "{{role}} · {{business}}"
+  },
   "home": {
     "title": "Bienvenue sur FOOYRE",
+    "welcome": "Bienvenue, {{name}}",
     "intro": "Le socle technique de l'application est en place. Les modules (catalogue, ventes, finances…) seront ajoutés dans les prochaines phases.",
+    "provisional": "Écran d'accueil provisoire : il confirme que votre connexion fonctionne. Les modules de gestion (catalogue, ventes, finances…) arriveront dans les prochaines étapes.",
+    "businessLabel": "Entreprise",
+    "roleLabel": "Rôle",
+    "email": "Adresse e-mail : {{email}}",
     "session": {
       "title": "Session",
       "loading": "Chargement de votre profil…",
       "unavailable": "Le service n'est pas disponible pour le moment.",
       "signedInAs": "Connecté·e en tant que {{name}}",
       "activeBusiness": "Entreprise active : {{business}}"
-    }
+    },
+    "noDashboard": "Votre espace est prêt. Utilisez le menu pour accéder aux rubriques autorisées pour votre rôle."
   },
   "errors": {
     "notFound": {
@@ -34,5 +69,17 @@
       "action": "Rechargez la page. Si le problème persiste, vérifiez la console du navigateur ou désactivez le mode démonstration (VITE_ENABLE_MOCKS=false).",
       "detail": "Détail technique : {{detail}}"
     }
+  },
+  "notifications": {
+    "close": "Fermer la notification"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "total_one": "{{count}} élément",
+    "total_other": "{{count}} éléments",
+    "position_one": "Page {{page}} sur {{totalPages}} · {{count}} élément",
+    "position_other": "Page {{page}} sur {{totalPages}} · {{count}} éléments"
   }
 }

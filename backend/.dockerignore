@@ -1,0 +1,16 @@
+# Contexte Docker du backend : uniquement ce qui sert à la compilation.
+target/
+.idea/
+*.iml
+.vscode/
+*.log
+hs_err_pid*
+# Secrets et environnements locaux : jamais dans une image.
+.env
+.env.*
+**/.env
+**/.env.*
+*.pem
+*.key
+*.p12
+*.jks

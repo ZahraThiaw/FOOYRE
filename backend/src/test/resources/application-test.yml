@@ -1,0 +1,7 @@
+# Profil test : PostgreSQL fourni par Testcontainers (@ServiceConnection), aucune donnée réelle.
+fooyre:
+  public-base-url: http://localhost:5173
+  auth:
+    # Clé RÉSERVÉE AUX TESTS (32 octets non secrets, Base64), sans rapport avec un environnement réel.
+    jwt-secret: dGVzdC1vbmx5LWtleS1mb29yZS1tdnAxLTMyLWJ5dGVzISE=
+    cookie-secure: false

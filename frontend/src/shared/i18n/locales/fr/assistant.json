@@ -1,0 +1,54 @@
+{
+  "title": "Assistante IA",
+  "intro": "Posez vos questions sur votre stock, vos ventes et vos clients, à l'écrit ou à la voix. L'assistante répond à partir des données réelles de votre entreprise et ne fait rien sans votre confirmation.",
+  "inputLabel": "Votre question",
+  "placeholder": "Ex. : Quels produits ont un stock faible ?",
+  "send": "Envoyer",
+  "sending": "L'assistante réfléchit…",
+  "you": "Vous",
+  "assistant": "Assistante",
+  "clear": "Effacer la conversation",
+  "historyNote": "La conversation n'est pas enregistrée : elle disparaît lorsque vous quittez la page.",
+  "insufficientData": "Données insuffisantes pour répondre complètement.",
+  "suggestionsTitle": "Pour commencer",
+  "suggestions": {
+    "lowStock": "Quels sont les produits dont le stock est faible ?",
+    "today": "Combien ai-je vendu aujourd'hui ?",
+    "top": "Quels sont mes produits les plus vendus ce mois-ci ?",
+    "stock": "Combien me reste-t-il de produits en stock ?",
+    "customers": "Quels clients ont acheté récemment ?"
+  },
+  "voice": {
+    "start": "Dicter ma question",
+    "stop": "Arrêter la dictée",
+    "listening": "Écoute en cours… parlez maintenant.",
+    "unsupported": "La dictée vocale n'est pas disponible dans ce navigateur. Vous pouvez écrire votre question.",
+    "denied": "L'accès au microphone a été refusé. Autorisez-le dans les réglages du navigateur, ou écrivez votre question.",
+    "noSpeech": "Aucune parole détectée. Réessayez en parlant plus près du microphone.",
+    "network": "La reconnaissance vocale du navigateur est indisponible (connexion). Écrivez votre question.",
+    "error": "La dictée a échoué. Vous pouvez écrire votre question.",
+    "privacy": "La dictée utilise la reconnaissance vocale de votre navigateur, qui peut envoyer l'audio à un service distant de l'éditeur du navigateur (Google pour Chrome, Microsoft pour Edge). FOOYRE ne reçoit et ne conserve que le texte."
+  },
+  "status": {
+    "disabled": "L'assistante IA est désactivée sur ce serveur (AI_ENABLED). Elle ne peut pas être utilisée pour le moment.",
+    "notConfigured": "La connexion au service d'IA n'est pas configurée (clé du fournisseur absente côté serveur). L'interface est prête, mais aucune réponse ne peut être produite tant que l'administrateur n'a pas configuré la connexion.",
+    "notEnabledOwner": "L'assistante n'est pas encore activée pour votre entreprise. Activez-la dans Paramètres après avoir pris connaissance des données transmises.",
+    "notEnabled": "L'assistante n'est pas activée pour votre entreprise. Seule la propriétaire peut l'activer.",
+    "goToSettings": "Ouvrir les paramètres"
+  },
+  "proposal": {
+    "saleTitle": "Proposition de brouillon de vente",
+    "saleHint": "Rien n'est enregistré tant que vous n'avez pas confirmé. Les prix et montants seront calculés par FOOYRE, puis vous pourrez vérifier et confirmer la vente vous-même.",
+    "customer": "Client : {{name}}",
+    "noCustomer": "Sans client",
+    "createDraft": "Créer le brouillon",
+    "creating": "Création…",
+    "created": "Brouillon créé : vérifiez-le puis confirmez la vente.",
+    "failed": "Le brouillon n'a pas pu être créé.",
+    "dismiss": "Ignorer",
+    "searchTitle": "Recherche proposée : « {{query}} »",
+    "openSearch": "Voir dans le stock",
+    "customerTitle": "Fiche client proposée",
+    "openCustomer": "Ouvrir le formulaire pré-rempli"
+  }
+}

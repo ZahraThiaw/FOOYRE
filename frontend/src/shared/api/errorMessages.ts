@@ -15,6 +15,7 @@ import { toApiError, type FieldError } from './apiError';
 export const KNOWN_ERROR_CODES = [
   'VALIDATION_ERROR',
   'SESSION_REVOKED',
+  'INVALID_CREDENTIALS',
   'FORBIDDEN',
   'CSRF_CHECK_FAILED',
   'AI_NOT_ENABLED',
@@ -39,6 +40,12 @@ export const KNOWN_ERROR_CODES = [
   'AI_INVALID_OUTPUT',
   'AI_DISABLED',
   'AI_UNAVAILABLE',
+  'STOCK_ALREADY_INITIALIZED',
+  'STOCK_NOT_INITIALIZED',
+  'PRODUCT_ARCHIVED',
+  'ALREADY_ARCHIVED',
+  'AI_NOT_CONFIGURED',
+  'AI_CREDENTIALS_REJECTED',
   'INTERNAL_ERROR',
   'MOCK_NOT_IMPLEMENTED',
 ] as const;
@@ -52,6 +59,8 @@ export const KNOWN_FIELD_ERROR_CODES = [
   'TOO_SHORT',
   'INVALID_VALUE',
   'ALREADY_EXISTS',
+  'ARCHIVED',
+  'LOCKED',
 ] as const;
 export type KnownFieldErrorCode = (typeof KNOWN_FIELD_ERROR_CODES)[number];
 
