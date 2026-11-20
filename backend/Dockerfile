@@ -9,6 +9,12 @@
 # Images de base officielles Eclipse Temurin (à figer par empreinte sha256 lors de l'audit sécurité).
 
 FROM eclipse-temurin:21-jdk-noble AS build
+# unzip : sans lui, le wrapper Maven (mode « only-script ») télécharge l'archive .tar.gz au lieu du
+# .zip déclaré, et la vérification de l'empreinte distributionSha256Sum (celle du .zip) échoue à juste
+# titre. On installe unzip plutôt que d'affaiblir le contrôle d'intégrité.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends unzip \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
@@ -18,7 +24,8 @@ RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 RUN ./mvnw -B -q dependency:go-offline
 COPY src/ src/
 RUN ./mvnw -B -q -DskipTests package \
-    && java -Djarmode=tools -jar target/fooyre-backend-*.jar extract --destination /workspace/extracted
+    && java -Djarmode=tools -jar target/fooyre-backend-*.jar extract --destination /workspace/extracted \
+    && mv /workspace/extracted/fooyre-backend-*.jar /workspace/extracted/app.jar
 
 FROM eclipse-temurin:21-jre-noble
 # Utilisateur système dédié, sans shell de connexion ni droit d'écriture sur l'application.

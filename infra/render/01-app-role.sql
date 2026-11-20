@@ -18,8 +18,10 @@
 SELECT format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 20', :'app')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app') \gexec
 
-ALTER ROLE :"app" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 20
-  PASSWORD :'app_password';
+-- Mot de passe uniquement : depuis PostgreSQL 16, un rôle non superutilisateur (cas de Render) ne
+-- peut pas modifier les attributs SUPERUSER / REPLICATION / BYPASSRLS, même pour les retirer. Ils
+-- sont fixés à la création ci-dessus et contrôlés par la requête finale.
+ALTER ROLE :"app" WITH LOGIN PASSWORD :'app_password';
 
 -- Connexion à cette base uniquement.
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app') \gexec
